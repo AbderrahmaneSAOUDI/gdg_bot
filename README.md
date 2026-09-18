@@ -6,10 +6,11 @@ Official Discord Bot for the **Google Developer Groups (GDG) Ghardaia** communit
 
 ## ✨ Features
 
-- **Modular Slash Commands**: Organized commands with dynamic loading (`src/commands/`).
-- **Clean Event Architecture**: Event listeners decoupled into dedicated modules (`src/events/`).
+- **Single Entry Point (`/bot`)**: Fast bootstrapping command opening an ephemeral interactive dashboard.
+- **UI-First Philosophy**: *"Commands are for bootstrapping. UI is for everything else."*
+- **Tactile UI Navigation**: Seamless navigation across squads, meetings, activities, knowledge base, requests, and profiles with back-to-hub buttons.
+- **Persistent Channel Dashboard**: Optional permanent hub message for dedicated channels (e.g., `#team-hub`) so members never need to type commands.
 - **Modern ES Modules (`"type": "module"`)**: Native ESM running smoothly on modern Node.js versions.
-- **Hot Reload Development**: Native Node watcher support (`node --watch`) via `npm run dev`.
 - **Fast Command Deployment**: Dedicated script to deploy slash commands to a test guild or globally.
 - **Safe Secrets Handling**: Preconfigured `.env` and `.env.example` templates to prevent credential leaks.
 
@@ -25,15 +26,16 @@ gdg_bot/
 ├── package.json             # Project dependencies & scripts
 ├── README.md                # Documentation & setup guide
 └── src/
-    ├── index.js             # Bot entry point & loader
+    ├── index.js             # Bot entry point & dynamic loader
     ├── deploy-commands.js   # Script to register slash commands to Discord
     ├── commands/            # Slash command definitions
-    │   └── utility/
-    │       ├── ping.js      # /ping (Round-trip & WS latency)
-    │       └── info.js      # /info (GDG Ghardaia community details)
+    │   └── general/
+    │       └── bot.js       # /bot (Single entry point & hub launcher)
+    ├── ui/                  # UI components, buttons & embed builders
+    │   └── hub.js           # Team Hub dashboard & navigation views
     └── events/              # Discord gateway event handlers
         ├── clientReady.js   # Bot ready & presence setter
-        └── interactionCreate.js # Slash command router & error handler
+        └── interactionCreate.js # Slash command & button interaction router
 ```
 
 ---
@@ -99,7 +101,7 @@ GUILD_ID=your_guild_id_here
 
 ### 5. Deploy Slash Commands
 
-Register slash commands (`/ping`, `/info`) with Discord's REST API:
+Register the `/bot` application command with Discord's REST API:
 
 ```bash
 npm run deploy
