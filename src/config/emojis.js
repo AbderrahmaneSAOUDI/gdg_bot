@@ -30,6 +30,7 @@ export const EMOJIS = Object.freeze({
   EVENT: '🎉',
   MEETING: '📅',
   RESOURCE: '📚',
+  KNOWLEDGE: '📚',
   REQUESTS: '📋',
   ACTIVITIES: '🎯',
   SETTINGS: '⚙️',

@@ -178,3 +178,21 @@ export function createOpenButton({
 }) {
   return createPrimaryButton({ customId, label, emoji, disabled });
 }
+
+export function createKnowledgeButton({
+  customId = CUSTOM_IDS.HUB_KNOWLEDGE,
+  label = BUTTON_LABELS.KNOWLEDGE,
+  emoji = EMOJIS.RESOURCE,
+  disabled = false,
+} = {}) {
+  return createPrimaryButton({ customId, label, emoji, disabled });
+}
+
+export function createProfileButton({
+  customId = CUSTOM_IDS.HUB_PROFILE,
+  label = BUTTON_LABELS.PROFILE,
+  emoji = EMOJIS.PROFILE,
+  disabled = false,
+} = {}) {
+  return createSecondaryButton({ customId, label, emoji, disabled });
+}

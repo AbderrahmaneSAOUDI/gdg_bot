@@ -20,6 +20,10 @@ export const BUTTON_LABELS = Object.freeze({
   OPEN: 'Open',
   SUBMIT: 'Submit',
   RETRY: 'Retry',
+  KNOWLEDGE: 'Knowledge',
+  PROFILE: 'My Profile',
+  BACK_TO_HUB: 'Back to Hub',
+  OPEN_HUB: 'Open Team Hub',
 });
 
 export const SELECT_LABELS = Object.freeze({
@@ -34,6 +38,8 @@ export const SELECT_LABELS = Object.freeze({
 export const COMMON_TITLES = Object.freeze({
   BOT_NAME: 'GDG Ghardaia Bot',
   TEAM_HUB: 'GDG Ghardaia — Team Hub',
+  KNOWLEDGE: 'Knowledge Base & Resources',
+  PROFILE: 'Member Profile',
   CONFIRMATION: 'Confirmation Required',
   ERROR: 'Error',
   SUCCESS: 'Success',

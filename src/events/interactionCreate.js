@@ -1,13 +1,8 @@
 import { Events, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import {
   getHubPayload,
-  getTeamPayload,
-  getMeetingsPayload,
-  getActivitiesPayload,
   getKnowledgePayload,
-  getRequestsPayload,
   getProfilePayload,
-  getMorePayload,
   getPersistentHubPayload,
 } from '../ui/hub.js';
 import { parseCustomId, CUSTOM_IDS, NAMESPACES } from '../config/customIds.js';
@@ -63,14 +58,14 @@ export async function execute(interaction) {
           // In ephemeral messages, deleteReply cleans up the screen
           await interaction.deleteReply().catch(async () => {
             await interaction.update({
-              content: `${EMOJIS.CLOSE} Session closed.`,
+              content: `${EMOJIS.CLOSE} ${COMMON_MESSAGES.SESSION_CLOSED}`,
               embeds: [],
               components: [],
             }).catch(() => {});
           });
         } else {
           await interaction.reply({
-            content: `${EMOJIS.CLOSE} Session closed.`,
+            content: `${EMOJIS.CLOSE} ${COMMON_MESSAGES.SESSION_CLOSED}`,
             flags: MessageFlags.Ephemeral,
           });
         }
@@ -101,34 +96,27 @@ export async function execute(interaction) {
       // Hub Navigation Views
       let payload = null;
 
-      switch (interaction.customId) {
-        case 'hub:main':
-        case CUSTOM_IDS.NAV_HOME:
-          payload = getHubPayload(interaction.user, interaction.member);
-          break;
-        case 'hub:team':
-          payload = getTeamPayload(interaction.user, interaction.member);
-          break;
-        case 'hub:meetings':
-          payload = getMeetingsPayload(interaction.user, interaction.member);
-          break;
-        case 'hub:activities':
-          payload = getActivitiesPayload(interaction.user, interaction.member);
-          break;
-        case 'hub:knowledge':
-          payload = getKnowledgePayload(interaction.user, interaction.member);
-          break;
-        case 'hub:requests':
-          payload = getRequestsPayload(interaction.user, interaction.member);
-          break;
-        case 'hub:profile':
-          payload = getProfilePayload(interaction.user, interaction.member);
-          break;
-        case 'hub:more':
-          payload = getMorePayload(interaction.user, interaction.member, interaction.client);
-          break;
-        default:
-          return;
+      if (
+        interaction.customId === CUSTOM_IDS.HUB_MAIN ||
+        interaction.customId === 'hub:main' ||
+        interaction.customId === CUSTOM_IDS.NAV_HOME ||
+        (parsed.namespace === NAMESPACES.HUB && parsed.action === 'main')
+      ) {
+        payload = getHubPayload(interaction.user, interaction.member);
+      } else if (
+        interaction.customId === CUSTOM_IDS.HUB_KNOWLEDGE ||
+        interaction.customId === 'hub:knowledge' ||
+        (parsed.namespace === NAMESPACES.HUB && parsed.action === 'knowledge')
+      ) {
+        payload = getKnowledgePayload(interaction.user, interaction.member);
+      } else if (
+        interaction.customId === CUSTOM_IDS.HUB_PROFILE ||
+        interaction.customId === 'hub:profile' ||
+        (parsed.namespace === NAMESPACES.HUB && parsed.action === 'profile')
+      ) {
+        payload = getProfilePayload(interaction.user, interaction.member);
+      } else {
+        return;
       }
 
       const isEphemeral = interaction.message?.flags?.has(MessageFlags.Ephemeral);

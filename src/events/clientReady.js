@@ -9,7 +9,7 @@ export async function execute(client) {
   client.user.setPresence({
     activities: [
       {
-        name: 'GDG Ghardaia Community',
+        name: 'GDG Ghardaia Discord Server',
         type: ActivityType.Watching,
       },
     ],

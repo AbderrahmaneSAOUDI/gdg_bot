@@ -23,7 +23,7 @@
 ### 2. Department & Team Colors
 - GDG Ghardaia squads have official brand colors from leadership:
   - **Relations**: Yellow (`#FFD427` / `0xFFD427`)
-  - **Logistics**: Brown (`#795548` / `0x795548`)
+  - **Logistics**: Brown (`#A84300` / `0xA84300`)
   - **Media**: Blue (`#4285F4` / `0x4285F4`)
   - **Design**: Green (`#34A853` / `0x34A853`)
   - **Development**: Purple (`#A142F4` / `0xA142F4`)

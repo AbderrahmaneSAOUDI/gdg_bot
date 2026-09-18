@@ -84,6 +84,18 @@
   4. Core role color token in `colors.js` is named `CORE_TEAM` (`ROLE_COLORS.CORE_TEAM`, `ROLE_HEX_COLORS.CORE_TEAM`).
 - **Rationale**: Strict terminology constraint set directly by user.
 
+### D-011
+- **Decision**: Never hardcode buttons, texts/labels, emojis, or colors. Always use centralized configuration and reusable components.
+- **Status**: Accepted
+- **Rationale**: Direct user directive. Keeps codebase maintainable, ensures consistency, eliminates magic strings, and enforces strict separation of concerns.
+- **Directives**:
+  1. Buttons must be generated via `src/ui/components/buttons.js` using `BUTTON_LABELS` and `EMOJIS`.
+  2. All custom IDs must be generated/resolved via `src/config/customIds.js` (`CUSTOM_IDS` / `buildCustomId`).
+  3. All texts, titles, descriptions, and system messages must be stored in `src/messages/` or `src/config/labels.js`.
+  4. All colors must be imported from `src/config/colors.js`.
+  5. The `/bot` hub is simplified to only show `Knowledge` and `My Profile` for now, with other speculative buttons and details removed.
+- **Affected Files / Scope**: `src/ui/`, `src/config/`, `src/messages/`, `src/events/`, `src/commands/`
+
 ---
 
 ## 📝 Sync Format for New Decisions

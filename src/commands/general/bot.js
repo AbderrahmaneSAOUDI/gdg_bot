@@ -5,6 +5,9 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { getHubPayload, getPersistentHubPayload } from '../../ui/hub.js';
+import { ERROR_MESSAGES } from '../../messages/errors.js';
+import { COMMON_MESSAGES } from '../../messages/common.js';
+import { EMOJIS } from '../../config/emojis.js';
 
 export const data = new SlashCommandBuilder()
   .setName('bot')
@@ -28,7 +31,7 @@ export async function execute(interaction) {
 
     if (!hasPermission) {
       return interaction.reply({
-        content: '🚫 You must have the **Manage Server** or **Administrator** permission to deploy the persistent Team Hub.',
+        content: `${EMOJIS.LOCK} ${ERROR_MESSAGES.ADMIN_REQUIRED}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -36,7 +39,7 @@ export async function execute(interaction) {
     const botPermissions = targetChannel.permissionsFor(interaction.client.user);
     if (!botPermissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
       return interaction.reply({
-        content: `⚠️ The bot lacks permission to send messages or embed links in ${targetChannel}.`,
+        content: `${EMOJIS.WARNING} ${ERROR_MESSAGES.CHANNEL_PERMISSIONS_MISSING(targetChannel)}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -44,7 +47,7 @@ export async function execute(interaction) {
     await targetChannel.send(getPersistentHubPayload());
 
     return interaction.reply({
-      content: `✅ Persistent Team Hub dashboard successfully posted in ${targetChannel}! Members can now interact with the hub directly without running commands.`,
+      content: `${EMOJIS.SUCCESS} ${COMMON_MESSAGES.PERSISTENT_DEPLOYED_TO(targetChannel)}`,
       flags: MessageFlags.Ephemeral,
     });
   }

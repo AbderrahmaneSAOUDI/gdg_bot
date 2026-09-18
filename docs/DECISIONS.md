@@ -18,6 +18,7 @@
 | [DEC-008](#dec-008-automatic-decision-tracking--zero-order-repetition) | Automatic Decision Tracking & Zero Order Repetition | 2026-09-18 | **Active** | AI Agent Behavior |
 | [DEC-009](#dec-009-unified-core-team-canonical-sort-order--role-naming) | Unified Core Team, Canonical Sort Order & Role Naming | 2026-09-18 | **Active** | Club Structure / Roles |
 | [DEC-010](#dec-010-leadership--co-manager-nomenclature-and-core_team-token) | Leadership & Co-Manager Nomenclature & CORE_TEAM Token | 2026-09-18 | **Active** | Terminology / Roles |
+| [DEC-011](#dec-011-zero-hardcoding-for-buttons-texts-and-colors) | Zero-Hardcoding for Buttons, Texts, and Colors | 2026-09-18 | **Active** | Architecture / UI |
 
 ---
 
@@ -164,6 +165,32 @@
   - [`docs/PERMISSIONS.md`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/docs/PERMISSIONS.md)
   - [`docs/DISCORD_UI.md`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/docs/DISCORD_UI.md)
   - [`test/ui-components.test.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/test/ui-components.test.js)
+
+### DEC-011: Zero-Hardcoding for Buttons, Texts, and Colors
+- **Date**: 2026-09-18
+- **Status**: Accepted / Active
+- **User Directive**:
+  > *"back to empty bot `/bot` command that shows only [knowledge / My Profile] for now and remove other buttons with details.*
+  > *decision: never hardcode buttons and texts and colors, always use config and components"*
+- **Context & Rationale**:
+  - Enforces pure decoupling and eliminates magic strings, hardcoded IDs, and inline color numbers across all interaction handlers, commands, and UI views.
+  - Streamlines `/bot` command to only present verified foundational screens (`Knowledge` and `My Profile`), eliminating speculative/mock features (`Team`, `Meetings`, `Activities`, `Requests`, `More`).
+- **Concrete Rules / Implementation**:
+  1. **Buttons**: Always use button builders from `src/ui/components/buttons.js` (`createKnowledgeButton`, `createProfileButton`, `createBackButton`, etc.) configured with tokens from `src/config/labels.js` and `src/config/emojis.js`.
+  2. **Custom IDs**: All custom IDs must be generated/resolved via `src/config/customIds.js` (`CUSTOM_IDS.HUB_*`).
+  3. **Texts & Messages**: All user-facing strings, headers, descriptions, and error notifications must reside in `src/messages/` (`DASHBOARD_MESSAGES`, `KNOWLEDGE_MESSAGES`, `COMMON_MESSAGES`, `ERROR_MESSAGES`) or `src/config/labels.js`.
+  4. **Colors**: General UI components and embeds must resolve colors exclusively via `src/config/colors.js`.
+- **Affected Files**:
+  - [`src/config/labels.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/labels.js)
+  - [`src/config/customIds.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/customIds.js)
+  - [`src/messages/dashboard.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/messages/dashboard.js)
+  - [`src/messages/knowledge.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/messages/knowledge.js)
+  - [`src/messages/common.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/messages/common.js)
+  - [`src/messages/errors.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/messages/errors.js)
+  - [`src/ui/components/buttons.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/components/buttons.js)
+  - [`src/ui/hub.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/hub.js)
+  - [`src/commands/general/bot.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/commands/general/bot.js)
+  - [`src/events/interactionCreate.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/events/interactionCreate.js)
 
 ---
 

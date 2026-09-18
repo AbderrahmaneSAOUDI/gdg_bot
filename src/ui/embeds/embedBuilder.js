@@ -95,14 +95,20 @@ export function createProfileEmbed({
   }
 
   if (member?.roles?.cache) {
-    const roles = member.roles.cache
+    const roleList = Array.isArray(member.roles.cache)
+      ? member.roles.cache
+      : typeof member.roles.cache.values === 'function'
+      ? Array.from(member.roles.cache.values())
+      : [];
+
+    const roles = roleList
       .filter((r) => r.id !== member.guild?.id)
       .map((r) => r.name)
       .slice(0, 10)
       .join(', ');
 
     defaultFields.push({
-      name: '🎖️ Roles',
+      name: `${EMOJIS.STAR} Roles`,
       value: roles || 'No special roles',
       inline: false,
     });

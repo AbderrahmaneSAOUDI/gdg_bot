@@ -62,14 +62,27 @@ export function parseCustomId(customId) {
     };
   }
 
-  const [prefix, namespace, action, ...params] = customId.split(':');
-  const isBotCustomId = prefix === CUSTOM_ID_PREFIX || prefix === 'hub';
+  const parts = customId.split(':');
+  let prefix = parts[0] || '';
+  let namespace = parts[1] || '';
+  let action = parts[2] || '';
+  let params = parts.slice(3);
+
+  // Handle legacy 2-part format e.g. 'hub:knowledge'
+  if (parts.length === 2 && prefix === 'hub') {
+    action = namespace;
+    namespace = 'hub';
+    prefix = CUSTOM_ID_PREFIX;
+    params = [];
+  }
+
+  const isBotCustomId = prefix === CUSTOM_ID_PREFIX || parts[0] === 'hub';
 
   return {
-    prefix: prefix || '',
-    namespace: namespace || '',
-    action: action || '',
-    params: params || [],
+    prefix,
+    namespace,
+    action,
+    params,
     isBotCustomId,
   };
 }
@@ -88,4 +101,8 @@ export const CUSTOM_IDS = Object.freeze({
 
   PAGE_PREV: buildCustomId(NAMESPACES.PAGE, 'prev'),
   PAGE_NEXT: buildCustomId(NAMESPACES.PAGE, 'next'),
+
+  HUB_MAIN: buildCustomId(NAMESPACES.HUB, 'main'),
+  HUB_KNOWLEDGE: buildCustomId(NAMESPACES.HUB, 'knowledge'),
+  HUB_PROFILE: buildCustomId(NAMESPACES.HUB, 'profile'),
 });

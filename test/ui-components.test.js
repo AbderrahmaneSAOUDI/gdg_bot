@@ -55,6 +55,8 @@ import {
   createPreviousButton,
   createViewButton,
   createOpenButton,
+  createKnowledgeButton,
+  createProfileButton,
   createOptionSelectMenu,
   createMemberSelectMenu,
   createRoleSelectMenu,
@@ -85,6 +87,8 @@ import {
   createNavigationRow,
   formatBreadcrumb,
   getHubPayload,
+  getKnowledgePayload,
+  getProfilePayload,
   getPersistentHubPayload,
 } from '../src/ui/index.js';
 
@@ -267,6 +271,8 @@ test('3. Emojis, Labels & Custom IDs', async (t) => {
     assert.equal(BUTTON_LABELS.HOME, 'Home');
     assert.equal(BUTTON_LABELS.CONFIRM, 'Confirm');
     assert.equal(BUTTON_LABELS.CANCEL, 'Cancel');
+    assert.equal(BUTTON_LABELS.KNOWLEDGE, 'Knowledge');
+    assert.equal(BUTTON_LABELS.PROFILE, 'My Profile');
   });
 
   await t.test('Custom ID builder and parser follow naming convention', () => {
@@ -279,6 +285,10 @@ test('3. Emojis, Labels & Custom IDs', async (t) => {
     assert.equal(parsed.action, 'view');
     assert.deepEqual(parsed.params, ['dev']);
     assert.equal(parsed.isBotCustomId, true);
+
+    assert.equal(CUSTOM_IDS.HUB_MAIN, 'bot:hub:main');
+    assert.equal(CUSTOM_IDS.HUB_KNOWLEDGE, 'bot:hub:knowledge');
+    assert.equal(CUSTOM_IDS.HUB_PROFILE, 'bot:hub:profile');
   });
 });
 
@@ -319,6 +329,16 @@ test('5. Reusable Button Components', async (t) => {
 
     const confirmNormal = createConfirmButton({ isDestructive: false }).toJSON();
     assert.equal(confirmNormal.style, ButtonStyle.Success);
+
+    const knowledgeBtn = createKnowledgeButton().toJSON();
+    assert.equal(knowledgeBtn.style, ButtonStyle.Primary);
+    assert.equal(knowledgeBtn.custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(knowledgeBtn.label, BUTTON_LABELS.KNOWLEDGE);
+
+    const profileBtn = createProfileButton().toJSON();
+    assert.equal(profileBtn.style, ButtonStyle.Secondary);
+    assert.equal(profileBtn.custom_id, CUSTOM_IDS.HUB_PROFILE);
+    assert.equal(profileBtn.label, BUTTON_LABELS.PROFILE);
   });
 });
 
@@ -520,12 +540,37 @@ test('11. Hub Compatibility', async (t) => {
       guild: { iconURL: () => 'https://example.com/icon.png' },
     };
 
+    // Main Hub Payload: exactly 1 action row containing [Knowledge] and [My Profile]
     const hub = getHubPayload(mockUser, mockMember);
     assert.equal(hub.embeds.length, 1);
-    assert.equal(hub.components.length, 3);
+    assert.equal(hub.components.length, 1);
+    const hubRow = hub.components[0].toJSON();
+    assert.equal(hubRow.components.length, 2);
+    assert.equal(hubRow.components[0].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(hubRow.components[1].custom_id, CUSTOM_IDS.HUB_PROFILE);
 
+    // Knowledge Payload: valid embed and back navigation row
+    const knowledge = getKnowledgePayload(mockUser, mockMember);
+    assert.equal(knowledge.embeds.length, 1);
+    assert.equal(knowledge.components.length, 1);
+    const knowledgeRow = knowledge.components[0].toJSON();
+    assert.equal(knowledgeRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
+
+    // Profile Payload: valid embed and back navigation row
+    const profile = getProfilePayload(mockUser, mockMember);
+    assert.equal(profile.embeds.length, 1);
+    assert.equal(profile.components.length, 1);
+    const profileRow = profile.components[0].toJSON();
+    assert.equal(profileRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
+
+    // Persistent Hub Payload: exactly 1 action row with [Open Team Hub], [Knowledge], [My Profile]
     const persistent = getPersistentHubPayload();
     assert.equal(persistent.embeds.length, 1);
-    assert.equal(persistent.components.length, 2);
+    assert.equal(persistent.components.length, 1);
+    const persistentRow = persistent.components[0].toJSON();
+    assert.equal(persistentRow.components.length, 3);
+    assert.equal(persistentRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
+    assert.equal(persistentRow.components[1].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(persistentRow.components[2].custom_id, CUSTOM_IDS.HUB_PROFILE);
   });
 });

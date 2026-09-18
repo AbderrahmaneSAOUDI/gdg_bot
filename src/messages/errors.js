@@ -22,4 +22,6 @@ export const ERROR_MESSAGES = Object.freeze({
     'An unexpected error occurred. Our team has been notified.',
   UNKNOWN_INTERACTION:
     'This interaction is unrecognized or has expired. Please restart via `/bot`.',
+  CHANNEL_PERMISSIONS_MISSING: (channel) =>
+    `The bot lacks permission to send messages or embed links in ${channel}.`,
 });
