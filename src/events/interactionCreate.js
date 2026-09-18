@@ -10,6 +10,10 @@ import {
   getMorePayload,
   getPersistentHubPayload,
 } from '../ui/hub.js';
+import { parseCustomId, CUSTOM_IDS, NAMESPACES } from '../config/customIds.js';
+import { ERROR_MESSAGES } from '../messages/errors.js';
+import { COMMON_MESSAGES } from '../messages/common.js';
+import { EMOJIS } from '../config/emojis.js';
 
 export const name = Events.InteractionCreate;
 export const once = false;
@@ -30,7 +34,7 @@ export async function execute(interaction) {
       console.error(`[ERROR] Error executing command '${interaction.commandName}':`, error);
 
       const errorMessage = {
-        content: '⚠️ There was an error while executing this command!',
+        content: `${EMOJIS.ERROR} ${ERROR_MESSAGES.OPERATION_FAILED}`,
         flags: MessageFlags.Ephemeral,
       };
 
@@ -45,9 +49,34 @@ export async function execute(interaction) {
 
   // 2. Handle Button Component Interactions
   if (interaction.isButton()) {
-    if (!interaction.customId.startsWith('hub:')) return;
+    const parsed = parseCustomId(interaction.customId);
+    if (!parsed.isBotCustomId) return;
 
     try {
+      // Standard Close button interaction
+      if (
+        interaction.customId === CUSTOM_IDS.NAV_CLOSE ||
+        (parsed.namespace === NAMESPACES.NAV && parsed.action === 'close') ||
+        interaction.customId.endsWith(':close')
+      ) {
+        if (interaction.message?.flags?.has(MessageFlags.Ephemeral)) {
+          // In ephemeral messages, deleteReply cleans up the screen
+          await interaction.deleteReply().catch(async () => {
+            await interaction.update({
+              content: `${EMOJIS.CLOSE} Session closed.`,
+              embeds: [],
+              components: [],
+            }).catch(() => {});
+          });
+        } else {
+          await interaction.reply({
+            content: `${EMOJIS.CLOSE} Session closed.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+        return;
+      }
+
       // Admin action: Deploy persistent hub to the current channel
       if (interaction.customId === 'hub:deploy_persistent') {
         const hasPermission =
@@ -56,7 +85,7 @@ export async function execute(interaction) {
 
         if (!hasPermission) {
           return interaction.reply({
-            content: '🚫 You must have the **Manage Server** or **Administrator** permission to deploy the persistent hub.',
+            content: `${EMOJIS.LOCK} ${ERROR_MESSAGES.ADMIN_REQUIRED}`,
             flags: MessageFlags.Ephemeral,
           });
         }
@@ -64,7 +93,7 @@ export async function execute(interaction) {
         await interaction.channel.send(getPersistentHubPayload());
 
         return interaction.reply({
-          content: `✅ Persistent Team Hub dashboard successfully deployed to ${interaction.channel}!`,
+          content: `${EMOJIS.SUCCESS} ${COMMON_MESSAGES.PERSISTENT_DEPLOYED}`,
           flags: MessageFlags.Ephemeral,
         });
       }
@@ -74,6 +103,7 @@ export async function execute(interaction) {
 
       switch (interaction.customId) {
         case 'hub:main':
+        case CUSTOM_IDS.NAV_HOME:
           payload = getHubPayload(interaction.user, interaction.member);
           break;
         case 'hub:team':
@@ -117,7 +147,7 @@ export async function execute(interaction) {
       console.error(`[ERROR] Failed to handle button interaction '${interaction.customId}':`, error);
 
       const errorMessage = {
-        content: '⚠️ Failed to update the dashboard view. Please try running `/bot` again.',
+        content: `${EMOJIS.WARNING} ${ERROR_MESSAGES.OPERATION_FAILED}`,
         flags: MessageFlags.Ephemeral,
       };
 
@@ -129,4 +159,3 @@ export async function execute(interaction) {
     }
   }
 }
-
