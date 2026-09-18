@@ -1,0 +1,24 @@
+{
+  "name": "gdg-ghardaia-bot",
+  "version": "1.0.0",
+  "description": "Official Discord bot for Google Developer Groups (GDG) Ghardaia community",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "keywords": [
+    "gdg",
+    "gdg-ghardaia",
+    "discord-bot",
+    "discordjs"
+  ],
+  "author": "GDG Ghardaia",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7"
+  }
+}
