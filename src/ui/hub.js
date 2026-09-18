@@ -126,19 +126,29 @@ export function getTeamPayload(user, member) {
   const embed = createStandardEmbed({
     title: '👥 My Team — GDG Ghardaia',
     description:
-      'Our community is organized into specialized squads collaborating to deliver world-class developer events and learning experiences.\n\n' +
-      '### 🏗️ Departments & Squads\n' +
-      '• **💻 Tech & Development**: Workshops, Codelabs, Open Source, and Platform tooling.\n' +
-      '• **🎨 Design & Media**: Branding, visual assets, video production, and social creatives.\n' +
-      '• **📢 Marketing & Content**: Social media campaigns, announcements, and copy.\n' +
-      '• **📦 Logistics & Operations**: Venue management, hardware, equipment & catering.\n' +
-      '• **🤝 Community & Relations**: Speaker outreach, sponsorships, and member onboarding.',
+      'Our community is driven by a unified Core Team and specialized departments collaborating to deliver world-class developer events and learning experiences.\n\n' +
+      '### 🌟 Core Team\n' +
+      '• **President** *(Red)*\n' +
+      '• **Vice President** *(Red)*\n' +
+      '• **SG** *(Red)*\n' +
+      '• **HR** *(Red)*\n' +
+      '• **Relations** *(Yellow)*\n' +
+      '• **Logistics** *(Brown)*\n' +
+      '• **Media** *(Blue)*\n' +
+      '• **Design** *(Green)*\n' +
+      '• **Dev** *(Purple)*\n\n' +
+      '### 🏗️ Departments\n' +
+      '• **📢 Relations Department** *(Yellow)*: Partnerships, sponsorships & speaker outreach\n' +
+      '• **📦 Logistics Department** *(Brown)*: Equipment, hardware, venues & catering\n' +
+      '• **🎥 Media Department** *(Blue)*: Photography, videography & media production\n' +
+      '• **🎨 Design Department** *(Green)*: Branding, UI/UX, graphics & social assets\n' +
+      '• **💻 Dev Department** *(Purple)*: Workshops, Codelabs, Open Source & platforms',
     color: GOOGLE_COLORS.GREEN,
     fields: [
       {
-        name: '🌟 Core Leadership',
-        value: 'Chapter Lead • Co-Leads • Squad Managers',
-        inline: true,
+        name: '🌟 Core Team Order',
+        value: 'President • Vice President • SG • HR • Relations • Logistics • Media • Design • Dev',
+        inline: false,
       },
       {
         name: '📍 Chapter',
@@ -335,7 +345,7 @@ export function getPersistentHubPayload() {
     fields: [
       {
         name: `${EMOJIS.TEAM} My Team`,
-        value: 'Squads, departments & core leads',
+        value: 'Squads, departments & core team',
         inline: true,
       },
       {

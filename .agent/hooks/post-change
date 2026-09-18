@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# .agent/hooks/post-change
+# Mechanical post-change check: runs test suite and checks code validity
+
+echo "🧪 [post-change] Running unit tests and verification suite..."
+npm test
+
+echo ""
+echo "✅ [post-change] All test suites passed successfully."

@@ -5,11 +5,19 @@ import { ButtonStyle, TextInputStyle, ComponentType } from 'discord.js';
 import {
   GOOGLE_COLORS,
   GOOGLE_HEX_COLORS,
+  DEPARTMENT_COLORS,
+  DEPARTMENT_HEX_COLORS,
+  ROLE_COLORS,
+  ROLE_HEX_COLORS,
   STATUS_COLORS,
   resolveColor,
   teams,
+  CORE_TEAM,
+  CLUB_ROLES,
+  CLUB_STRUCTURE_ORDER,
   getTeam,
   getTeamColor,
+  getRoleColor,
   isValidTeam,
   getAllTeams,
   EMOJIS,
@@ -81,12 +89,15 @@ import {
 } from '../src/ui/index.js';
 
 test('1. Colors & Design Tokens', async (t) => {
-  await t.test('Google Brand colors are defined as integers', () => {
+  await t.test('Google Brand & theme colors are defined as integers', () => {
     assert.equal(GOOGLE_COLORS.BLUE, 0x4285f4);
     assert.equal(GOOGLE_COLORS.RED, 0xea4335);
-    assert.equal(GOOGLE_COLORS.YELLOW, 0xfbbc04);
+    assert.equal(GOOGLE_COLORS.YELLOW, 0xffd427);
     assert.equal(GOOGLE_COLORS.GREEN, 0x34a853);
-    assert.equal(GOOGLE_COLORS.DARK, 0x202124);
+    assert.equal(GOOGLE_COLORS.PURPLE, 0xa142f4);
+    assert.equal(GOOGLE_COLORS.BROWN, 0xa84300);
+    assert.equal(GOOGLE_COLORS.DARK, 0x1e1e1e);
+    assert.equal(GOOGLE_COLORS.BOT_BLACK, 0x000001);
   });
 
   await t.test('Status colors map to Google Brand Palette', () => {
@@ -94,6 +105,25 @@ test('1. Colors & Design Tokens', async (t) => {
     assert.equal(STATUS_COLORS.ERROR, GOOGLE_COLORS.RED);
     assert.equal(STATUS_COLORS.WARNING, GOOGLE_COLORS.YELLOW);
     assert.equal(STATUS_COLORS.INFO, GOOGLE_COLORS.BLUE);
+  });
+
+  await t.test('Department and Role color tokens are defined in colors.js', () => {
+    assert.equal(DEPARTMENT_COLORS.RELATIONS, GOOGLE_COLORS.YELLOW);
+    assert.equal(DEPARTMENT_COLORS.LOGISTICS, GOOGLE_COLORS.BROWN);
+    assert.equal(DEPARTMENT_COLORS.MEDIA, GOOGLE_COLORS.BLUE);
+    assert.equal(DEPARTMENT_COLORS.DESIGN, GOOGLE_COLORS.GREEN);
+    assert.equal(DEPARTMENT_COLORS.DEV, GOOGLE_COLORS.PURPLE);
+
+    assert.equal(DEPARTMENT_HEX_COLORS.RELATIONS, '#FFD427');
+    assert.equal(DEPARTMENT_HEX_COLORS.LOGISTICS, '#A84300');
+    assert.equal(DEPARTMENT_HEX_COLORS.MEDIA, '#4285F4');
+    assert.equal(DEPARTMENT_HEX_COLORS.DESIGN, '#34A853');
+    assert.equal(DEPARTMENT_HEX_COLORS.DEV, '#A142F4');
+
+    assert.equal(ROLE_HEX_COLORS.CORE_TEAM, '#EA4335');
+    assert.equal(ROLE_HEX_COLORS.MEMBER, '#5F6368');
+    assert.equal(ROLE_HEX_COLORS.ALUMNI, '#5F6368');
+    assert.equal(ROLE_HEX_COLORS.BOT, '#000001');
   });
 
   await t.test('resolveColor resolves hex strings, numbers, and fallbacks', () => {
@@ -104,24 +134,122 @@ test('1. Colors & Design Tokens', async (t) => {
   });
 });
 
-test('2. Team Colors Configuration', async (t) => {
-  await t.test('teams object contains required GDG squads with hex colors', () => {
-    assert.ok(teams.TECH);
-    assert.ok(teams.TECH.name);
-    assert.ok(teams.TECH.color.startsWith('#'));
-    assert.equal(isValidTeam('tech'), true);
+test('2. Unified Core Team & Club Structure Configuration', async (t) => {
+  await t.test('Canonical sort order matches the specified 9-tier structure', () => {
+    assert.deepEqual(CLUB_STRUCTURE_ORDER, [
+      'President',
+      'Vice President',
+      'SG',
+      'HR',
+      'Relations',
+      'Logistics',
+      'Media',
+      'Design',
+      'Dev',
+    ]);
+  });
+
+  await t.test('teams object contains the 5 official departments sorted canonically', () => {
+    assert.equal(teams.RELATIONS.color, DEPARTMENT_HEX_COLORS.RELATIONS);
+    assert.equal(teams.LOGISTICS.color, DEPARTMENT_HEX_COLORS.LOGISTICS);
+    assert.equal(teams.MEDIA.color, DEPARTMENT_HEX_COLORS.MEDIA);
+    assert.equal(teams.DESIGN.color, DEPARTMENT_HEX_COLORS.DESIGN);
+    assert.equal(teams.DEV.color, DEPARTMENT_HEX_COLORS.DEV);
+
+    assert.equal(isValidTeam('relations'), true);
+    assert.equal(isValidTeam('logistics'), true);
+    assert.equal(isValidTeam('dev'), true);
+    assert.equal(isValidTeam('development'), true);
     assert.equal(isValidTeam('UNKNOWN_SQUAD'), false);
   });
 
-  await t.test('getTeamColor returns integer color for valid team', () => {
-    const color = getTeamColor('TECH');
-    assert.equal(typeof color, 'number');
+  await t.test('Core team contains all 9 roles unified without separation', () => {
+    const coreKeys = Object.keys(CORE_TEAM);
+    assert.deepEqual(coreKeys, [
+      'PRESIDENT',
+      'VICE_PRESIDENT',
+      'SG',
+      'HR',
+      'RELATIONS',
+      'LOGISTICS',
+      'MEDIA',
+      'DESIGN',
+      'DEV',
+    ]);
+
+    // Executive leadership roles (Red)
+    assert.equal(CORE_TEAM.PRESIDENT.color, ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(CORE_TEAM.VICE_PRESIDENT.color, ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(CORE_TEAM.SG.color, ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(CORE_TEAM.HR.color, ROLE_HEX_COLORS.CORE_TEAM);
+
+    // Departments in Core Team take department colors
+    assert.equal(CORE_TEAM.RELATIONS.color, DEPARTMENT_HEX_COLORS.RELATIONS);
+    assert.equal(CORE_TEAM.LOGISTICS.color, DEPARTMENT_HEX_COLORS.LOGISTICS);
+    assert.equal(CORE_TEAM.MEDIA.color, DEPARTMENT_HEX_COLORS.MEDIA);
+    assert.equal(CORE_TEAM.DESIGN.color, DEPARTMENT_HEX_COLORS.DESIGN);
+    assert.equal(CORE_TEAM.DEV.color, DEPARTMENT_HEX_COLORS.DEV);
+
+    // Co-managers are named Department Co-Managers (never leads)
+    assert.equal(CORE_TEAM.RELATIONS.description, 'Relations Department Co-Manager');
+    assert.equal(CORE_TEAM.LOGISTICS.description, 'Logistics Department Co-Manager');
+    assert.equal(CORE_TEAM.MEDIA.description, 'Media Department Co-Manager');
+    assert.equal(CORE_TEAM.DESIGN.description, 'Design Department Co-Manager');
+    assert.equal(CORE_TEAM.DEV.description, 'Dev Department Co-Manager');
   });
 
-  await t.test('getAllTeams returns array of teams', () => {
+  await t.test('Other roles use canonical names: MEMBER, ALUMNI, BOT', () => {
+    assert.equal(CLUB_ROLES.MEMBER.name, 'Member');
+    assert.equal(CLUB_ROLES.MEMBER.color, ROLE_HEX_COLORS.MEMBER);
+
+    assert.equal(CLUB_ROLES.ALUMNI.name, 'Alumni');
+    assert.equal(CLUB_ROLES.ALUMNI.color, ROLE_HEX_COLORS.ALUMNI);
+
+    assert.equal(CLUB_ROLES.BOT.name, 'Bot');
+    assert.equal(CLUB_ROLES.BOT.color, ROLE_HEX_COLORS.BOT);
+
+    // Strict naming adherence: MEMBER not MEMBER_NO_DEPT, BOT not BOTS_AND_APPS, CORE_TEAM token
+    assert.equal(ROLE_COLORS.MEMBER_NO_DEPT, undefined);
+    assert.equal(ROLE_COLORS.BOTS_AND_APPS, undefined);
+    assert.equal(ROLE_COLORS.CORE_RED, undefined);
+    assert.equal(ROLE_COLORS.CORE_TEAM, GOOGLE_COLORS.RED);
+    assert.equal(CLUB_ROLES.MEMBER_NO_DEPT, undefined);
+    assert.equal(CLUB_ROLES.BOTS_AND_APPS, undefined);
+  });
+
+  await t.test('getRoleColor resolves color for roles dynamically', () => {
+    assert.equal(getRoleColor('President'), ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(getRoleColor('Vice President'), ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(getRoleColor('SG'), ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(getRoleColor('HR'), ROLE_HEX_COLORS.CORE_TEAM);
+    assert.equal(getRoleColor('Relations'), DEPARTMENT_HEX_COLORS.RELATIONS);
+    assert.equal(getRoleColor('Logistics'), DEPARTMENT_HEX_COLORS.LOGISTICS);
+    assert.equal(getRoleColor('Media'), DEPARTMENT_HEX_COLORS.MEDIA);
+    assert.equal(getRoleColor('Design'), DEPARTMENT_HEX_COLORS.DESIGN);
+    assert.equal(getRoleColor('Dev'), DEPARTMENT_HEX_COLORS.DEV);
+
+    assert.equal(getRoleColor('Member'), ROLE_HEX_COLORS.MEMBER);
+    assert.equal(getRoleColor('Alumni'), ROLE_HEX_COLORS.ALUMNI);
+    assert.equal(getRoleColor('Bot'), ROLE_HEX_COLORS.BOT);
+  });
+
+  await t.test('getTeamColor returns integer color for valid team', () => {
+    const devColor = getTeamColor('DEV');
+    assert.equal(devColor, GOOGLE_COLORS.PURPLE);
+
+    const logColor = getTeamColor('LOGISTICS');
+    assert.equal(logColor, GOOGLE_COLORS.BROWN);
+  });
+
+  await t.test('getAllTeams returns array of 5 official departments in canonical order', () => {
     const all = getAllTeams();
     assert.ok(Array.isArray(all));
-    assert.ok(all.length >= 5);
+    assert.equal(all.length, 5);
+    assert.equal(all[0].key, 'RELATIONS');
+    assert.equal(all[1].key, 'LOGISTICS');
+    assert.equal(all[2].key, 'MEDIA');
+    assert.equal(all[3].key, 'DESIGN');
+    assert.equal(all[4].key, 'DEV');
   });
 });
 
@@ -142,14 +270,14 @@ test('3. Emojis, Labels & Custom IDs', async (t) => {
   });
 
   await t.test('Custom ID builder and parser follow naming convention', () => {
-    const id = buildCustomId('team', 'view', 'tech');
-    assert.equal(id, 'bot:team:view:tech');
+    const id = buildCustomId('team', 'view', 'dev');
+    assert.equal(id, 'bot:team:view:dev');
 
     const parsed = parseCustomId(id);
     assert.equal(parsed.prefix, 'bot');
     assert.equal(parsed.namespace, 'team');
     assert.equal(parsed.action, 'view');
-    assert.deepEqual(parsed.params, ['tech']);
+    assert.deepEqual(parsed.params, ['dev']);
     assert.equal(parsed.isBotCustomId, true);
   });
 });
@@ -218,10 +346,14 @@ test('6. Reusable Select Menus', async (t) => {
     assert.equal(roleMenu.type, ComponentType.RoleSelect);
   });
 
-  await t.test('Team select menu populates configured squads', () => {
+  await t.test('Team select menu populates configured squads in canonical order', () => {
     const teamMenu = createTeamSelectMenu({ customId: 'bot:select:team' }).toJSON();
-    assert.ok(teamMenu.options.length >= 5);
-    assert.ok(teamMenu.options.some((o) => o.value === 'TECH'));
+    assert.equal(teamMenu.options.length, 5);
+    assert.equal(teamMenu.options[0].value, 'RELATIONS');
+    assert.equal(teamMenu.options[1].value, 'LOGISTICS');
+    assert.equal(teamMenu.options[2].value, 'MEDIA');
+    assert.equal(teamMenu.options[3].value, 'DESIGN');
+    assert.equal(teamMenu.options[4].value, 'DEV');
   });
 });
 
@@ -368,8 +500,8 @@ test('10. ActionRows Chunking and Navigation', async (t) => {
   });
 
   await t.test('formatBreadcrumb formats hierarchy correctly', () => {
-    const breadcrumb = formatBreadcrumb(['Dashboard', 'My Team', 'Tech Squad']);
-    assert.equal(breadcrumb, 'Dashboard › My Team › Tech Squad');
+    const breadcrumb = formatBreadcrumb(['Dashboard', 'My Team', 'Dev Department']);
+    assert.equal(breadcrumb, 'Dashboard › My Team › Dev Department');
   });
 });
 

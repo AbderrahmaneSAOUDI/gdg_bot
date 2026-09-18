@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+# .agent/hooks/pre-change
+# Mechanical pre-change check: inspects active phase boundary and git status
+
+echo "🔍 [pre-change] Checking scope and active phase..."
+
+if [ -f ".agent/sidecars/CURRENT_PHASE.md" ]; then
+  head -n 12 .agent/sidecars/CURRENT_PHASE.md
+else
+  echo "⚠️ Warning: .agent/sidecars/CURRENT_PHASE.md not found!"
+fi
+
+echo ""
+echo "📁 [pre-change] Inspecting current repository status:"
+git status -s
+
+echo ""
+echo "✅ Pre-flight scope check completed."

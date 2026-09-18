@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+# .agent/hooks/pre-commit
+# Mechanical pre-commit safety check: prevents secret leaks and verifies staged files
+
+echo "🔒 [pre-commit] Scanning for secret leaks and untracked environment files..."
+
+# Check if .env is staged for commit
+if git diff --cached --name-only | grep -E '^(\.env|\.env\.local)$' > /dev/null 2>&1; then
+  echo "❌ ERROR: Attempting to commit an environment file (.env)! Aborting commit."
+  exit 1
+fi
+
+# Check for accidental hardcoded tokens or secrets in staged code
+if git diff --cached -S "DISCORD_TOKEN=" | grep -E 'DISCORD_TOKEN=[a-zA-Z0-9_-]{20,}' > /dev/null 2>&1; then
+  echo "❌ ERROR: Staged changes appear to contain a raw DISCORD_TOKEN! Aborting commit."
+  exit 1
+fi
+
+# Run test suite
+npm test
+
+echo "✅ [pre-commit] Safety checks and test suite passed."

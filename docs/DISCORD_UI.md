@@ -28,12 +28,15 @@ General informational screens, navigation controls, and general embeds must stri
 
 | Token | Hex Number | Hex String | Purpose |
 |---|---|---|---|
-| `GOOGLE_COLORS.BLUE` | `0x4285F4` | `#4285F4` | Primary brand color, general info, profile headers |
-| `GOOGLE_COLORS.RED` | `0xEA4335` | `#EA4335` | Destructive actions, errors, activities, alerts |
-| `GOOGLE_COLORS.YELLOW` | `0xFBBC04` | `#FBBC04` | Warnings, meeting schedules, requests |
-| `GOOGLE_COLORS.GREEN` | `0x34A853` | `#34A853` | Success states, team directory, confirmations |
-| `GOOGLE_COLORS.DARK` | `0x202124` | `#202124` | System settings, bot diagnostics, footer slate |
-| `GOOGLE_COLORS.GREY` | `0x5F6368` | `#5F6368` | Secondary notes, empty states |
+| `GOOGLE_COLORS.BLUE` | `0x4285F4` | `#4285F4` | Primary brand color, general info, Media Department |
+| `GOOGLE_COLORS.RED` | `0xEA4335` | `#EA4335` | Core Executive leadership, destructive actions, errors |
+| `GOOGLE_COLORS.YELLOW` | `0xFFD427` | `#FFD427` | Relations Department, warnings, meeting syncs |
+| `GOOGLE_COLORS.GREEN` | `0x34A853` | `#34A853` | Design Department, success states, team directory |
+| `GOOGLE_COLORS.PURPLE` | `0xA142F4` | `#A142F4` | Dev Department |
+| `GOOGLE_COLORS.BROWN` | `0xA84300` | `#A84300` | Logistics Department |
+| `GOOGLE_COLORS.DARK` | `0x1E1E1E` | `#1E1E1E` | System settings, bot diagnostics, dark UI backgrounds |
+| `GOOGLE_COLORS.GREY` | `0x5F6368` | `#5F6368` | Members, Alumni, empty states |
+| `GOOGLE_COLORS.BOT_BLACK` | `0x000001` | `#000001` | Discord bots, applications, and system integrators |
 
 ### 2.2 Semantic Status Colors
 
@@ -41,22 +44,40 @@ General informational screens, navigation controls, and general embeds must stri
 |---|---|---|
 | `STATUS_COLORS.SUCCESS` | `GOOGLE_COLORS.GREEN` (`0x34A853`) | Operation completed successfully |
 | `STATUS_COLORS.ERROR` / `DANGER` | `GOOGLE_COLORS.RED` (`0xEA4335`) | Failures, permission denied, destructive prompts |
-| `STATUS_COLORS.WARNING` | `GOOGLE_COLORS.YELLOW` (`0xFBBC04`) | Confirmations, timeouts, alerts |
+| `STATUS_COLORS.WARNING` | `GOOGLE_COLORS.YELLOW` (`0xFFD427`) | Confirmations, timeouts, alerts |
 | `STATUS_COLORS.INFO` | `GOOGLE_COLORS.BLUE` (`0x4285F4`) | Informational notifications, loading screens |
 
-### 2.3 Department & Squad Colors (`src/config/teams.js`)
+### 2.3 Unified Club Structure & Canonical Sort Order (`src/config/teams.js`)
 
-GDG Ghardaia departments/teams have their own official colors provided by the project owner. **Team colors should ONLY be used when displaying information specifically related to that department/team.**
+GDG Ghardaia operates with a unified Core Team containing President (Chapter Lead), Vice President (Strategic Co-Lead), SG, HR, and all department co-managers. The structure strictly follows this canonical order:
+
+| # | Role / Department | Color | Hex Code | Scope / Notes |
+|---|---|---|---|---|
+| 1 | **President** | Red | `#EA4335` | Chapter Lead & Community President |
+| 2 | **Vice President** | Red | `#EA4335` | Community Vice President & Strategic Co-Lead |
+| 3 | **SG** | Red | `#EA4335` | Secretary General — records & documentation |
+| 4 | **HR** | Red | `#EA4335` | Human Resources & Member Experience |
+| 5 | **Relations** | Yellow | `#FFD427` | Relations Department Co-Manager & squad members |
+| 6 | **Logistics** | Brown | `#A84300` | Logistics Department Co-Manager & squad members |
+| 7 | **Media** | Blue | `#4285F4` | Media Department Co-Manager & squad members |
+| 8 | **Design** | Green | `#34A853` | Design Department Co-Manager & squad members |
+| 9 | **Dev** | Purple | `#A142F4` | Dev Department Co-Manager & squad members |
+| — | **Member** | Grey | `#5F6368` | General members without department |
+| — | **Alumni** | Grey | `#5F6368` | Former organizing team members |
+| — | **Bot** | Black | `#000001` | All bots and automated apps |
 
 > [!CAUTION]
 > **STRICT PRESERVATION RULE**: Do NOT guess, modify, approximate, or replace team colors. The project owner provides the exact team names and hex colors. Update only in [`src/config/teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/teams.js).
 
 ```javascript
-import { getTeam, getTeamColor } from '../config/teams.js';
+import { getTeam, getTeamColor, getRoleColor } from '../config/teams.js';
 
-// Retrieve squad configuration and embed color integer
-const techTeam = getTeam('TECH');
-const embedColor = getTeamColor('TECH');
+// Retrieve department configuration and embed color integer
+const devDept = getTeam('DEVELOPMENT');
+const devColor = getTeamColor('DEVELOPMENT'); // 0xA142F4
+
+// Retrieve role hex color
+const presidentColor = getRoleColor('President'); // '#EA4335'
 ```
 
 ---
