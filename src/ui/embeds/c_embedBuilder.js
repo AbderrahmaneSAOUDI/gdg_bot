@@ -1,9 +1,9 @@
 import { EmbedBuilder } from 'discord.js';
-import { GOOGLE_COLORS, STATUS_COLORS, resolveColor } from '../../config/colors.js';
-import { getTeamColor } from '../../config/teams.js';
-import { EMOJIS } from '../../config/emojis.js';
-import { COMMON_MESSAGES } from '../../messages/common.js';
-import { ERROR_MESSAGES } from '../../messages/errors.js';
+import { GOOGLE_COLORS, STATUS_COLORS, resolveColor } from '../../config/cfg_colors.js';
+import { getTeamColor } from '../../config/cfg_teams.js';
+import { EMOJIS } from '../../config/cfg_emojis.js';
+import { COMMON_MESSAGES } from '../../messages/msg_common.js';
+import { ERROR_MESSAGES } from '../../messages/msg_errors.js';
 
 const DEFAULT_FOOTER_TEXT = 'GDG Ghardaia • Google Developer Groups';
 

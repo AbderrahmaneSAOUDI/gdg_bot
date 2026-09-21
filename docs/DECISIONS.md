@@ -192,6 +192,29 @@
   - [`src/commands/general/bot.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/commands/general/bot.js)
   - [`src/events/interactionCreate.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/events/interactionCreate.js)
 
+### DEC-012: Standardized File Naming Prefixes & Single Responsibility Principle
+- **Date**: 2026-09-19
+- **Status**: Accepted / Active
+- **User Directive**:
+  > *"rename all files in this project so I have like: c_* for components, cmd_* for commands, cfg_* for configuration files, f_* for functions, json_* for functions that CRUD json files, view_* for views, msg_* for messages, each file should handle one task, I don't care about number of files, I care about the code to be easy to understand."*
+- **Context & Rationale**:
+  - Eliminates ambiguity in IDE tabs and fuzzy file searches (`Ctrl+P`).
+  - Strict Single Responsibility Principle (SRP): each file performs one task.
+  - Distinguishes reusable widgets (`c_*`) from assembled screen payloads (`view_*`).
+- **Concrete Rules / Implementation**:
+  1. `cmd_*`: Slash commands in `src/commands/general/cmd_bot.js`.
+  2. `evt_*`: Gateway event handlers in `src/events/evt_clientReady.js`, `evt_interactionCreate.js`.
+  3. `c_*`: Reusable components in `src/ui/components/`, `src/ui/embeds/`, `src/ui/navigation/`.
+  4. `view_*`: Assembled screen payloads in `src/ui/view_hub.js`.
+  5. `cfg_*`: Configurations and tokens in `src/config/cfg_*.js`.
+  6. `msg_*`: Centralized text messages and copy in `src/messages/msg_*.js`.
+  7. `json_*`: Local JSON store CRUD operations in `src/data/json_*.js`.
+  8. `srv_*`: Business logic services in `src/features/srv_*.js`.
+  9. `f_*`: Pure utility helper functions in `src/utils/f_*.js`.
+  10. `t_*`: Unit and integration test suites in `test/t_*.test.js`.
+  11. Directory barrel files (`index.js`) maintained across all modules.
+- **Affected Files**: Entire codebase, `src/`, `test/`, `docs/SHORTCUTS.MD`, `.agent/rules/file-naming.md`
+
 ---
 
 ## 📝 Decision Entry Template (For Future Entries)

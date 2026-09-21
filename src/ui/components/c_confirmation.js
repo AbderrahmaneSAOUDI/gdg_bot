@@ -1,9 +1,9 @@
 import { ActionRowBuilder, EmbedBuilder } from 'discord.js';
-import { createConfirmButton, createCancelButton } from './buttons.js';
-import { STATUS_COLORS } from '../../config/colors.js';
-import { EMOJIS } from '../../config/emojis.js';
-import { CONFIRMATION_MESSAGES } from '../../messages/confirmations.js';
-import { BUTTON_LABELS } from '../../config/labels.js';
+import { createConfirmButton, createCancelButton } from './c_buttons.js';
+import { STATUS_COLORS } from '../../config/cfg_colors.js';
+import { EMOJIS } from '../../config/cfg_emojis.js';
+import { CONFIRMATION_MESSAGES } from '../../messages/msg_confirmations.js';
+import { BUTTON_LABELS } from '../../config/cfg_labels.js';
 
 /**
  * Creates an ActionRow containing Confirm and Cancel buttons.

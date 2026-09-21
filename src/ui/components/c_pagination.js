@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { createPreviousButton, createNextButton, createCloseButton } from './buttons.js';
-import { buildCustomId, NAMESPACES } from '../../config/customIds.js';
+import { createPreviousButton, createNextButton, createCloseButton } from './c_buttons.js';
+import { buildCustomId, NAMESPACES } from '../../config/cfg_customIds.js';
 
 /**
  * Creates a standard pagination ActionRow.

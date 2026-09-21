@@ -4,11 +4,11 @@ import {
   getKnowledgePayload,
   getProfilePayload,
   getPersistentHubPayload,
-} from '../ui/hub.js';
-import { parseCustomId, CUSTOM_IDS, NAMESPACES } from '../config/customIds.js';
-import { ERROR_MESSAGES } from '../messages/errors.js';
-import { COMMON_MESSAGES } from '../messages/common.js';
-import { EMOJIS } from '../config/emojis.js';
+} from '../ui/view_hub.js';
+import { parseCustomId, CUSTOM_IDS, NAMESPACES } from '../config/cfg_customIds.js';
+import { ERROR_MESSAGES } from '../messages/msg_errors.js';
+import { COMMON_MESSAGES } from '../messages/msg_common.js';
+import { EMOJIS } from '../config/cfg_emojis.js';
 
 export const name = Events.InteractionCreate;
 export const once = false;

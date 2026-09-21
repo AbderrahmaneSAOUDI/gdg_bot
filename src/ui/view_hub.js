@@ -1,20 +1,20 @@
-import { GOOGLE_COLORS } from '../config/colors.js';
-import { EMOJIS } from '../config/emojis.js';
-import { BUTTON_LABELS, COMMON_TITLES } from '../config/labels.js';
-import { CUSTOM_IDS } from '../config/customIds.js';
+import { GOOGLE_COLORS } from '../config/cfg_colors.js';
+import { EMOJIS } from '../config/cfg_emojis.js';
+import { BUTTON_LABELS, COMMON_TITLES } from '../config/cfg_labels.js';
+import { CUSTOM_IDS } from '../config/cfg_customIds.js';
 import {
   createKnowledgeButton,
   createProfileButton,
   createBackButton,
   createPrimaryButton,
-} from './components/buttons.js';
-import { createActionRows } from './components/actionRows.js';
+} from './components/c_buttons.js';
+import { createActionRows } from './components/c_actionRows.js';
 import {
   createStandardEmbed,
   createProfileEmbed,
-} from './embeds/embedBuilder.js';
-import { DASHBOARD_MESSAGES } from '../messages/dashboard.js';
-import { KNOWLEDGE_MESSAGES } from '../messages/knowledge.js';
+} from './embeds/c_embedBuilder.js';
+import { DASHBOARD_MESSAGES } from '../messages/msg_dashboard.js';
+import { KNOWLEDGE_MESSAGES } from '../messages/msg_knowledge.js';
 
 // Backward-compatible alias for existing code
 export const BRAND_COLORS = GOOGLE_COLORS;

@@ -1,7 +1,7 @@
 import { ButtonBuilder, ButtonStyle } from 'discord.js';
-import { EMOJIS } from '../../config/emojis.js';
-import { BUTTON_LABELS } from '../../config/labels.js';
-import { CUSTOM_IDS } from '../../config/customIds.js';
+import { EMOJIS } from '../../config/cfg_emojis.js';
+import { BUTTON_LABELS } from '../../config/cfg_labels.js';
+import { CUSTOM_IDS } from '../../config/cfg_customIds.js';
 
 /**
  * Creates a Button with a specified style.

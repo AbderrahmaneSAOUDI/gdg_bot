@@ -4,7 +4,7 @@ import {
   GOOGLE_HEX_COLORS,
   DEPARTMENT_HEX_COLORS,
   ROLE_HEX_COLORS,
-} from './colors.js';
+} from './cfg_colors.js';
 
 /**
  * Canonical Club Structure Sort Order:
@@ -38,7 +38,7 @@ export const teams = {
   RELATIONS: {
     key: 'RELATIONS',
     name: 'Relations Department',
-    shortName: 'Relations',
+    shortName: 'Rel',
     color: DEPARTMENT_HEX_COLORS.RELATIONS, // Yellow (#FFD427)
     description: 'Speaker outreach, sponsorships, partnerships, and external relations',
   },
@@ -54,7 +54,7 @@ export const teams = {
     name: 'Media Department',
     shortName: 'Media',
     color: DEPARTMENT_HEX_COLORS.MEDIA, // Blue (#4285F4)
-    description: 'Photography, videography, coverage, and audiovisual production',
+    description: 'Photography, videography, coverage, social media management, and audiovisual production',
   },
   DESIGN: {
     key: 'DESIGN',
@@ -103,7 +103,7 @@ export const CORE_TEAM = Object.freeze({
     key: 'HR',
     name: 'HR',
     color: ROLE_HEX_COLORS.CORE_TEAM,
-    description: 'Human Resources & Member Experience',
+    description: 'Human Resources, Internal Relations & Member Experience',
   },
   RELATIONS: {
     key: 'RELATIONS',

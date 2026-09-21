@@ -25,6 +25,7 @@ Explore our comprehensive engineering and product specifications:
 | Document | Purpose |
 |---|---|
 | [🤖 AGENTS.md](AGENTS.md) | Guidelines, invariants, and coding standards for AI coding assistants and developers. |
+| [⚡ SHORTCUTS.MD](docs/SHORTCUTS.MD) | Developer file prefix cheat sheet, Single Responsibility Principle & naming standards. |
 | [🌐 VISION.md](docs/VISION.md) | Mission statement, community personas, and the UI-First Manifesto. |
 | [📋 REQUIREMENTS.md](docs/REQUIREMENTS.md) | Complete functional (FR) and non-functional (NFR) requirements specification. |
 | [🏗️ ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, component decomposition, and interaction lifecycles. |
@@ -48,6 +49,7 @@ gdg_bot/
 ├── package.json             # ES Module manifest, dependencies & scripts
 ├── README.md                # Project overview & developer guide
 ├── docs/                    # Architectural and product specifications
+│   ├── SHORTCUTS.MD         # Developer file prefix cheatsheet & SRP guidelines
 │   ├── VISION.md            # Mission, philosophy & community personas
 │   ├── REQUIREMENTS.md      # Functional & non-functional requirements
 │   ├── ARCHITECTURE.md      # System architecture & component flows
@@ -56,17 +58,45 @@ gdg_bot/
 │   ├── PERMISSIONS.md       # Discord RBAC matrix & permissions
 │   ├── WORKFLOWS.md         # Detailed workflows & sequence diagrams
 │   └── ROADMAP.md           # Phased milestones & feature trajectory
+├── test/
+│   └── t_ui_components.test.js # Automated component and token tests
 └── src/
     ├── index.js             # Bot entry point & dynamic component loaders
     ├── deploy-commands.js   # REST script to deploy slash commands to Discord
-    ├── commands/            # Slash command definitions
+    ├── commands/            # Slash command definitions (cmd_*)
     │   └── general/
-    │       └── bot.js       # /bot (Single entry point & hub launcher)
-    ├── events/              # Discord gateway event handlers
-    │   ├── clientReady.js   # Ready handler, presence & startup greeting
-    │   └── interactionCreate.js # Command & button interaction dispatcher
-    └── ui/                  # UI view builders, embeds & action rows
-        └── hub.js           # Team Hub views & Google brand color tokens
+    │       └── cmd_bot.js   # /bot (Single entry point & hub launcher)
+    ├── events/              # Discord gateway event handlers (evt_*)
+    │   ├── evt_clientReady.js       # Ready handler, presence & startup greeting
+    │   └── evt_interactionCreate.js # Command & button interaction dispatcher
+    ├── config/              # Centralized design tokens & configuration (cfg_*)
+    │   ├── cfg_colors.js    # Google Brand and Department colors
+    │   ├── cfg_teams.js     # Team & role organizational hierarchy
+    │   ├── cfg_customIds.js # Custom ID builders and parsers
+    │   ├── cfg_emojis.js    # Standard emojis and icons
+    │   ├── cfg_labels.js    # Reusable button and UI labels
+    │   └── index.js         # Barrel re-export for config
+    ├── messages/            # Centralized text copy & response templates (msg_*)
+    │   ├── msg_common.js    # Common system messages & titles
+    │   ├── msg_dashboard.js # Hub dashboard descriptions & greetings
+    │   ├── msg_errors.js    # User-facing error copy
+    │   ├── msg_knowledge.js # Knowledge base messages
+    │   ├── msg_confirmations.js # Action confirmation dialog texts
+    │   └── index.js         # Barrel re-export for messages
+    └── ui/                  # UI view builders, components & navigation (c_*, view_*)
+        ├── view_hub.js      # Main Team Hub view
+        ├── components/      # Reusable UI widgets (c_*)
+        │   ├── c_buttons.js     # Standardized styled buttons
+        │   ├── c_selectMenus.js # Dropdown menus
+        │   ├── c_modals.js      # Pop-up modal forms & inputs
+        │   ├── c_pagination.js  # Pagination rows & slicing
+        │   ├── c_confirmation.js# Confirm/Cancel action dialogs
+        │   └── c_actionRows.js  # 5-button-per-row chunker
+        ├── embeds/          # Embed archetypes
+        │   └── c_embedBuilder.js# Google brand embed builders
+        ├── navigation/      # Navigation breadcrumbs & flow
+        │   └── c_navigation.js  # Back/Home/Close control rows
+        └── index.js         # Barrel re-export for UI system
 ```
 
 ---

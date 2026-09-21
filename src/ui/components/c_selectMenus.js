@@ -4,9 +4,9 @@ import {
   UserSelectMenuBuilder,
   RoleSelectMenuBuilder,
 } from 'discord.js';
-import { SELECT_LABELS } from '../../config/labels.js';
-import { getAllTeams } from '../../config/teams.js';
-import { EMOJIS } from '../../config/emojis.js';
+import { SELECT_LABELS } from '../../config/cfg_labels.js';
+import { getAllTeams } from '../../config/cfg_teams.js';
+import { EMOJIS } from '../../config/cfg_emojis.js';
 
 /**
  * Creates a generic String Select Menu.

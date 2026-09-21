@@ -94,7 +94,24 @@
   3. All texts, titles, descriptions, and system messages must be stored in `src/messages/` or `src/config/labels.js`.
   4. All colors must be imported from `src/config/colors.js`.
   5. The `/bot` hub is simplified to only show `Knowledge` and `My Profile` for now, with other speculative buttons and details removed.
-- **Affected Files / Scope**: `src/ui/`, `src/config/`, `src/messages/`, `src/events/`, `src/commands/`
+### D-012
+- **Decision**: Standardized File Naming & Prefix Conventions with Single Responsibility Principle.
+- **Status**: Accepted
+- **Rationale**: Direct user directive. Maximizes code readability and instant file recognition in the editor (tabs and fuzzy search `Ctrl+P`). Enforces that every file handles a single task, while keeping reusable components distinct from assembled views.
+- **Directives**:
+  1. `cmd_*`: Slash commands in `src/commands/`.
+  2. `evt_*`: Discord gateway event handlers in `src/events/`.
+  3. `c_*`: Reusable UI components used more than once in `src/ui/components/`, `src/ui/embeds/`, `src/ui/navigation/`.
+  4. `view_*`: Assembled screen payloads in `src/ui/` (e.g. `view_hub.js`).
+  5. `cfg_*`: Configuration, design tokens, and keys in `src/config/`.
+  6. `msg_*`: System messages, text copy, and response templates in `src/messages/`.
+  7. `json_*`: Local JSON storage CRUD functions in `src/data/`.
+  8. `srv_*`: Business logic & service handlers in `src/features/`.
+  9. `f_*`: Pure standalone utility helper functions in `src/utils/`.
+  10. `t_*`: Unit and integration tests in `test/`.
+  11. Every file must handle one task (Single Responsibility Principle). Folders should be used freely to maintain clean separation.
+  12. Architectural directories must maintain `index.js` barrel files that re-export prefixed modules.
+- **Affected Files / Scope**: Entire project, `src/`, `test/`, `docs/`, `.agent/`
 
 ---
 

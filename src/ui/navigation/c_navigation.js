@@ -1,6 +1,6 @@
 import { ActionRowBuilder } from 'discord.js';
-import { createBackButton, createHomeButton, createCloseButton } from '../components/buttons.js';
-import { CUSTOM_IDS } from '../../config/customIds.js';
+import { createBackButton, createHomeButton, createCloseButton } from '../components/c_buttons.js';
+import { CUSTOM_IDS } from '../../config/cfg_customIds.js';
 
 /**
  * Navigation flow steps invariant:

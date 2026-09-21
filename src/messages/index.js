@@ -1,5 +1,6 @@
-export * from './common.js';
-export * from './errors.js';
-export * from './confirmations.js';
-export * from './dashboard.js';
-export * from './knowledge.js';
+export * from './msg_common.js';
+export * from './msg_errors.js';
+export * from './msg_confirmations.js';
+export * from './msg_dashboard.js';
+export * from './msg_knowledge.js';
+

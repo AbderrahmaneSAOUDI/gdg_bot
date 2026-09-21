@@ -25,14 +25,15 @@ Every agent operating in this repository must strictly abide by this constitutio
 Before writing or modifying any code, every agent MUST:
 1. **Check Scope Boundary**: Read [`.agent/sidecars/CURRENT_PHASE.md`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/.agent/sidecars/CURRENT_PHASE.md). If the requested work belongs to a future phase or an unapproved feature, STOP and alert the user.
 2. **Read Project Memory**: Read [`.agent/sidecars/DECISIONS.md`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/.agent/sidecars/DECISIONS.md). You must never ask the user to repeat an established decision or implement code that contradicts an accepted decision.
-3. **Inspect Existing Assets**: Never reinvent buttons, embeds, menus, or colors. Check [`src/ui/index.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/index.js), [`src/config/colors.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/colors.js), and [`src/config/teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/teams.js).
+3. **Inspect Existing Assets**: Never reinvent buttons, embeds, menus, or colors. Check [`src/ui/index.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/index.js), [`src/config/cfg_colors.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_colors.js), and [`src/config/cfg_teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_teams.js).
 
 ## 4. Working Model & Layer Separation
 
 - **4-Tier Decoupling**: Interaction Listeners (`src/commands/`, `src/events/`) → Feature/Service Logic (`src/features/`) → Data Store (`src/data/`) → Reusable UI (`src/ui/`).
 - Handlers must never assemble raw embeds or execute raw queries inline.
 - General UI uses **Google Brand Colors** exclusively (`#4285F4`, `#EA4335`, `#FFD427`, `#34A853`, `#1E1E1E`).
-- Department colors belong exclusively to GDG Ghardaia squads in [`src/config/teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/teams.js). Never invent or modify team colors.
+- Department colors belong exclusively to GDG Ghardaia squads in [`src/config/cfg_teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_teams.js). Never invent or modify team colors.
+- **File Naming & SRP**: Strictly adhere to file prefixes (`cmd_*`, `evt_*`, `c_*`, `view_*`, `cfg_*`, `msg_*`, `json_*`, `srv_*`, `f_*`, `t_*`) and the Single Responsibility Principle documented in [`docs/SHORTCUTS.MD`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/docs/SHORTCUTS.MD).
 
 ## 5. System Map
 

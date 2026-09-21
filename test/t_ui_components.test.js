@@ -111,7 +111,7 @@ test('1. Colors & Design Tokens', async (t) => {
     assert.equal(STATUS_COLORS.INFO, GOOGLE_COLORS.BLUE);
   });
 
-  await t.test('Department and Role color tokens are defined in colors.js', () => {
+  await t.test('Department and Role color tokens are defined in cfg_colors.js', () => {
     assert.equal(DEPARTMENT_COLORS.RELATIONS, GOOGLE_COLORS.YELLOW);
     assert.equal(DEPARTMENT_COLORS.LOGISTICS, GOOGLE_COLORS.BROWN);
     assert.equal(DEPARTMENT_COLORS.MEDIA, GOOGLE_COLORS.BLUE);

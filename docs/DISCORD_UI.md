@@ -20,7 +20,7 @@ This document defines the visual identity, reusable component architecture, toke
 
 ## 2. Color Systems
 
-All color definitions reside centrally in [`src/config/colors.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/colors.js) and [`src/config/teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/teams.js). **Never hardcode hex values or integers in feature code.**
+All color definitions reside centrally in [`src/config/cfg_colors.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_colors.js) and [`src/config/cfg_teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_teams.js). **Never hardcode hex values or integers in feature code.**
 
 ### 2.1 Google Brand Palette (General Bot UI)
 
@@ -47,7 +47,7 @@ General informational screens, navigation controls, and general embeds must stri
 | `STATUS_COLORS.WARNING` | `GOOGLE_COLORS.YELLOW` (`0xFFD427`) | Confirmations, timeouts, alerts |
 | `STATUS_COLORS.INFO` | `GOOGLE_COLORS.BLUE` (`0x4285F4`) | Informational notifications, loading screens |
 
-### 2.3 Unified Club Structure & Canonical Sort Order (`src/config/teams.js`)
+### 2.3 Unified Club Structure & Canonical Sort Order (`src/config/cfg_teams.js`)
 
 GDG Ghardaia operates with a unified Core Team containing President (Chapter Lead), Vice President (Strategic Co-Lead), SG, HR, and all department co-managers. The structure strictly follows this canonical order:
 
@@ -67,7 +67,7 @@ GDG Ghardaia operates with a unified Core Team containing President (Chapter Lea
 | — | **Bot** | Black | `#000001` | All bots and automated apps |
 
 > [!CAUTION]
-> **STRICT PRESERVATION RULE**: Do NOT guess, modify, approximate, or replace team colors. The project owner provides the exact team names and hex colors. Update only in [`src/config/teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/teams.js).
+> **STRICT PRESERVATION RULE**: Do NOT guess, modify, approximate, or replace team colors. The project owner provides the exact team names and hex colors. Update only in [`src/config/cfg_teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_teams.js).
 
 ```javascript
 import { getTeam, getTeamColor, getRoleColor } from '../config/teams.js';
@@ -86,7 +86,7 @@ const presidentColor = getRoleColor('President'); // '#EA4335'
 
 All reusable UI components reside under [`src/ui/`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/) and are exported via [`src/ui/index.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/index.js).
 
-### 3.1 Button Variants & Common Actions (`src/ui/components/buttons.js`)
+### 3.1 Button Variants & Common Actions (`src/ui/components/c_buttons.js`)
 
 #### Core Style Variants
 - `createPrimaryButton({ customId, label, emoji, disabled })` (Discord Blurple/Primary)
@@ -115,16 +115,16 @@ Standardized buttons pre-configured with centralized labels and emojis:
 | `createViewButton()` | View | 👁️ | Primary | Feature-specific |
 | `createOpenButton()` | Open | 📂 | Primary | Feature-specific |
 
-### 3.2 Select Menus (`src/ui/components/selectMenus.js`)
+### 3.2 Select Menus (`src/ui/components/c_selectMenus.js`)
 
 - `createOptionSelectMenu({ customId, placeholder, options, minValues, maxValues, disabled })`: Generic String Select Menu.
 - `createMemberSelectMenu({ customId, placeholder, minValues, maxValues, disabled })`: Native Discord user/member picker (`ComponentType.UserSelect`).
 - `createRoleSelectMenu({ customId, placeholder, minValues, maxValues, disabled })`: Native Discord role picker (`ComponentType.RoleSelect`).
-- `createTeamSelectMenu({ customId, placeholder, disabled })`: Pre-populated with GDG squads from `src/config/teams.js`.
+- `createTeamSelectMenu({ customId, placeholder, disabled })`: Pre-populated with GDG squads from `src/config/cfg_teams.js`.
 - `createActivitySelectMenu({ customId, placeholder, activities, disabled })`: For choosing workshops or hackathon events.
 - `createCategorySelectMenu({ customId, placeholder, categories, disabled })`: For filtering resources and documents.
 
-### 3.3 Modals & Form Inputs (`src/ui/components/modals.js`)
+### 3.3 Modals & Form Inputs (`src/ui/components/c_modals.js`)
 
 Modals automatically wrap each text input into its own `ActionRowBuilder` to satisfy Discord API invariants:
 
@@ -151,7 +151,7 @@ const modal = createModal({
 });
 ```
 
-### 3.4 ActionRow Auto-Chunking (`src/ui/components/actionRows.js`)
+### 3.4 ActionRow Auto-Chunking (`src/ui/components/c_actionRows.js`)
 
 Discord restricts messages to a maximum of 5 buttons per `ActionRowBuilder`, and requires Select Menus to occupy their own individual row.
 `createActionRows(...components)` automatically chunks arrays of buttons into compliant rows of at most 5 buttons each and isolates select menus:
@@ -165,7 +165,7 @@ const rows = createActionRows(...sevenButtons);
 
 ---
 
-## 4. Embed Archetypes (`src/ui/embeds/embedBuilder.js`)
+## 4. Embed Archetypes (`src/ui/embeds/c_embedBuilder.js`)
 
 All embeds include standard timestamps and the canonical `GDG Ghardaia` footer.
 
@@ -201,7 +201,7 @@ Confirmation (e.g. Confirm Submission)
 Result (Success / Error)
 ```
 
-### 5.2 Standard Navigation Bar (`src/ui/navigation/navigation.js`)
+### 5.2 Standard Navigation Bar (`src/ui/navigation/c_navigation.js`)
 
 Every sub-view must provide predictable return controls using `createNavigationRow()`:
 
@@ -222,7 +222,7 @@ Yields: `[ ⬅️ Back ] [ 🏠 Home ] [ ✕ Close ] [ Join Squad ]`
 
 ---
 
-## 6. Pagination System (`src/ui/components/pagination.js`)
+## 6. Pagination System (`src/ui/components/c_pagination.js`)
 
 For datasets that exceed a single embed or list view:
 
@@ -246,7 +246,7 @@ const payload = createPaginatedPayload({
 
 ---
 
-## 7. Confirmation System (`src/ui/components/confirmation.js`)
+## 7. Confirmation System (`src/ui/components/c_confirmation.js`)
 
 **Destructive actions (deletion, cancellation, role removal) must never be executed immediately without confirmation.**
 
@@ -282,7 +282,7 @@ bot:<namespace>:<action>[:<param1>[:<param2>...]]
 - `meeting`: Meeting syncs (`bot:meeting:view:weekly_core`)
 - `modal`: Modal submissions (`bot:modal:submit_proposal`)
 
-Use `buildCustomId(namespace, action, ...params)` and `parseCustomId(customId)` from [`src/config/customIds.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/customIds.js) to build and parse IDs safely.
+Use `buildCustomId(namespace, action, ...params)` and `parseCustomId(customId)` from [`src/config/cfg_customIds.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/cfg_customIds.js) to build and parse IDs safely.
 
 ---
 

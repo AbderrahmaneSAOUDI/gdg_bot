@@ -4,18 +4,18 @@ import {
   PermissionFlagsBits,
   MessageFlags,
 } from 'discord.js';
-import { getHubPayload, getPersistentHubPayload } from '../../ui/hub.js';
-import { ERROR_MESSAGES } from '../../messages/errors.js';
-import { COMMON_MESSAGES } from '../../messages/common.js';
-import { EMOJIS } from '../../config/emojis.js';
+import { getHubPayload, getPersistentHubPayload } from '../../ui/view_hub.js';
+import { ERROR_MESSAGES } from '../../messages/msg_errors.js';
+import { COMMON_MESSAGES } from '../../messages/msg_common.js';
+import { EMOJIS } from '../../config/cfg_emojis.js';
 
 export const data = new SlashCommandBuilder()
   .setName('bot')
-  .setDescription('Open the GDG Ghardaia Team Hub dashboard')
+  .setDescription('Open the GDG Ghardaia Server Hub dashboard')
   .addChannelOption((option) =>
     option
       .setName('deploy_channel')
-      .setDescription('(Admin) Deploy a persistent Team Hub dashboard message to a channel')
+      .setDescription('(Admin) Deploy a persistent Server Hub dashboard message to a channel')
       .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
       .setRequired(false)
   );
