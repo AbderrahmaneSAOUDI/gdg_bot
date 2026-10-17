@@ -1,0 +1,40 @@
+[
+  {
+    "id": "eventx",
+    "name": "EventX 3.0",
+    "description": "Annual flagship hackathon & developer competition with categorized team tracks and dedicated mentorship.",
+    "status": "ACTIVE",
+    "teams": [
+      {
+        "id": "team_01",
+        "number": 1,
+        "name": "Team 01",
+        "category": "Web & Mobile",
+        "memberRoleId": null,
+        "mentorRoleId": null,
+        "members": [],
+        "mentors": []
+      },
+      {
+        "id": "team_02",
+        "number": 2,
+        "name": "Team 02",
+        "category": "AI / ML",
+        "memberRoleId": null,
+        "mentorRoleId": null,
+        "members": [],
+        "mentors": []
+      },
+      {
+        "id": "team_03",
+        "number": 3,
+        "name": "Team 03",
+        "category": "Cloud & Infrastructure",
+        "memberRoleId": null,
+        "mentorRoleId": null,
+        "members": [],
+        "mentors": []
+      }
+    ]
+  }
+]

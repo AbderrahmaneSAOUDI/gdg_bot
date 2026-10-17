@@ -1,8 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import dns from 'node:dns';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import 'dotenv/config';
+
+// Prioritize IPv4 to avoid gateway connection hangs on Docker/Pterodactyl hosting (e.g. Wispbyte)
+dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,4 +82,10 @@ process.on('uncaughtException', (error) => {
 });
 
 // Login to Discord
-client.login(token);
+console.log('📡 [GATEWAY] Connecting to Discord Gateway...');
+try {
+  await client.login(token);
+} catch (error) {
+  console.error('❌ [LOGIN ERROR] Failed to connect to Discord:', error);
+  process.exit(1);
+}

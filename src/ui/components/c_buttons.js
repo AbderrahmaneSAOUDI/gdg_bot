@@ -196,3 +196,76 @@ export function createProfileButton({
 } = {}) {
   return createSecondaryButton({ customId, label, emoji, disabled });
 }
+
+export function createEventsButton({
+  customId = CUSTOM_IDS.HUB_EVENTS,
+  label = BUTTON_LABELS.EVENTS,
+  emoji = EMOJIS.EVENT,
+  disabled = false,
+} = {}) {
+  return createPrimaryButton({ customId, label, emoji, disabled });
+}
+
+export function createTeamsButton({
+  customId,
+  label = BUTTON_LABELS.TEAMS,
+  emoji = EMOJIS.TEAM,
+  disabled = false,
+} = {}) {
+  return createPrimaryButton({ customId, label, emoji, disabled });
+}
+
+export function createMentorsButton({
+  customId,
+  label = BUTTON_LABELS.MENTORS,
+  emoji = EMOJIS.MENTOR,
+  disabled = false,
+} = {}) {
+  return createSecondaryButton({ customId, label, emoji, disabled });
+}
+
+export function createAddEventButton({
+  customId = CUSTOM_IDS.EVENT_ADD,
+  label = BUTTON_LABELS.ADD_EVENT,
+  emoji = EMOJIS.CREATE,
+  disabled = false,
+} = {}) {
+  return createSuccessButton({ customId, label, emoji, disabled });
+}
+
+export function createAddTeamButton({
+  customId = CUSTOM_IDS.TEAM_ADD,
+  label = BUTTON_LABELS.ADD_TEAM,
+  emoji = EMOJIS.CREATE,
+  disabled = false,
+} = {}) {
+  return createSuccessButton({ customId, label, emoji, disabled });
+}
+
+export function createAssignMembersButton({
+  customId = CUSTOM_IDS.TEAM_ASSIGN_MEMBERS,
+  label = BUTTON_LABELS.ASSIGN_MEMBERS,
+  emoji = EMOJIS.PROFILE,
+  disabled = false,
+} = {}) {
+  return createPrimaryButton({ customId, label, emoji, disabled });
+}
+
+export function createAssignMentorsButton({
+  customId = CUSTOM_IDS.TEAM_ASSIGN_MENTORS,
+  label = BUTTON_LABELS.ASSIGN_MENTORS,
+  emoji = EMOJIS.MENTOR,
+  disabled = false,
+} = {}) {
+  return createPrimaryButton({ customId, label, emoji, disabled });
+}
+
+export function createDeleteTeamButton({
+  customId,
+  label = BUTTON_LABELS.DELETE_TEAM,
+  emoji = EMOJIS.DELETE,
+  disabled = false,
+} = {}) {
+  return createDangerButton({ customId, label, emoji, disabled });
+}
+

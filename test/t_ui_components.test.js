@@ -540,14 +540,15 @@ test('11. Hub Compatibility', async (t) => {
       guild: { iconURL: () => 'https://example.com/icon.png' },
     };
 
-    // Main Hub Payload: exactly 1 action row containing [Knowledge] and [My Profile]
+    // Main Hub Payload: exactly 1 action row containing [Events], [Knowledge], and [My Profile]
     const hub = getHubPayload(mockUser, mockMember);
     assert.equal(hub.embeds.length, 1);
     assert.equal(hub.components.length, 1);
     const hubRow = hub.components[0].toJSON();
-    assert.equal(hubRow.components.length, 2);
-    assert.equal(hubRow.components[0].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
-    assert.equal(hubRow.components[1].custom_id, CUSTOM_IDS.HUB_PROFILE);
+    assert.equal(hubRow.components.length, 3);
+    assert.equal(hubRow.components[0].custom_id, CUSTOM_IDS.HUB_EVENTS);
+    assert.equal(hubRow.components[1].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(hubRow.components[2].custom_id, CUSTOM_IDS.HUB_PROFILE);
 
     // Knowledge Payload: valid embed and back navigation row
     const knowledge = getKnowledgePayload(mockUser, mockMember);
@@ -563,14 +564,16 @@ test('11. Hub Compatibility', async (t) => {
     const profileRow = profile.components[0].toJSON();
     assert.equal(profileRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
 
-    // Persistent Hub Payload: exactly 1 action row with [Open Team Hub], [Knowledge], [My Profile]
+    // Persistent Hub Payload: exactly 1 action row with [Open Team Hub], [Events], [Knowledge], [My Profile]
     const persistent = getPersistentHubPayload();
     assert.equal(persistent.embeds.length, 1);
     assert.equal(persistent.components.length, 1);
     const persistentRow = persistent.components[0].toJSON();
-    assert.equal(persistentRow.components.length, 3);
+    assert.equal(persistentRow.components.length, 4);
     assert.equal(persistentRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
-    assert.equal(persistentRow.components[1].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
-    assert.equal(persistentRow.components[2].custom_id, CUSTOM_IDS.HUB_PROFILE);
+    assert.equal(persistentRow.components[1].custom_id, CUSTOM_IDS.HUB_EVENTS);
+    assert.equal(persistentRow.components[2].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(persistentRow.components[3].custom_id, CUSTOM_IDS.HUB_PROFILE);
   });
 });
+

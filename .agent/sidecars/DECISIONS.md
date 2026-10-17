@@ -115,6 +115,21 @@
 
 ---
 
+### D-013
+- **Decision**: Event & Team Management Architecture, Canonical Team Naming, Automated Role Provisioning, and @CORE View-Only Invariant.
+- **Status**: Accepted
+- **Rationale**: User directive for organizing Discord competitions, hackathons, and activities. Requires strict naming ("Teams" instead of "groups"), automatic provisioning of Member and Mentor roles, and strict view-only channel permission isolation for the `@CORE` role.
+- **Directives**:
+  1. Nomenclature: The term "Groups" is deprecated; use "Teams" across all UI labels, custom IDs, and data structures.
+  2. Role Naming Format: `${eventName} - Team ${teamNumber} - Member` and `${eventName} - Team ${teamNumber} - Mentor`.
+  3. Team Member Role: Standard permissions (`ViewChannel`, `SendMessages`, `AddReactions`, `AttachFiles`, `Connect`, `Speak`). Color: Google Blue (`#4285F4`).
+  4. Team Mentor Role: Hoisted = true. Permissions: Member permissions + `PrioritySpeaker`, `ManageMessages`. Color: Google Yellow (`#FFD427`).
+  5. `@CORE` View-Only Invariant on Team Channels: `@CORE` has `ViewChannel: true` and `ReadMessageHistory: true`, but explicitly `SendMessages: false`, `AddReactions: false`, `CreatePublicThreads: false`, `CreatePrivateThreads: false`, `SendMessagesInThreads: false`, and `Speak: false`.
+  6. Discord native `UserSelectMenu` is used for multi-member and mentor assignments.
+- **Affected Files / Scope**: `src/config/`, `src/features/`, `src/data/`, `src/ui/`, `src/messages/`, `src/events/`, `test/`
+
+---
+
 ## 📝 Sync Format for New Decisions
 
 When recording new decisions from user instructions, append below using this format:
@@ -126,3 +141,4 @@ When recording new decisions from user instructions, append below using this for
 - **Rationale**: [Why this decision was made]
 - **Affected Files / Scope**: [List of components or files affected]
 ```
+

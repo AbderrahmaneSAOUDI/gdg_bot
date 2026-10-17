@@ -7,6 +7,7 @@ import {
   createProfileButton,
   createBackButton,
   createPrimaryButton,
+  createEventsButton,
 } from './components/c_buttons.js';
 import { createActionRows } from './components/c_actionRows.js';
 import {
@@ -21,14 +22,16 @@ export const BRAND_COLORS = GOOGLE_COLORS;
 
 /**
  * Creates the navigation button row for the Main Team Hub.
- * Shows strictly [📚 Knowledge] and [👤 My Profile].
+ * Shows [🎉 Events], [📚 Knowledge], and [👤 My Profile].
  */
 export function createHubActionRows() {
+  const eventsButton = createEventsButton();
   const knowledgeButton = createKnowledgeButton();
   const profileButton = createProfileButton();
 
-  return createActionRows(knowledgeButton, profileButton);
+  return createActionRows(eventsButton, knowledgeButton, profileButton);
 }
+
 
 /**
  * Creates a standard back navigation row for sub-views.
@@ -119,6 +122,11 @@ export function getPersistentHubPayload() {
         value: DASHBOARD_MESSAGES.SECTIONS.PROFILE,
         inline: true,
       },
+      {
+        name: `${EMOJIS.EVENT} ${BUTTON_LABELS.EVENTS}`,
+        value: 'View active competitions, teams, and mentors.',
+        inline: true,
+      },
     ],
     footerText: DASHBOARD_MESSAGES.PERSISTENT_FOOTER,
   });
@@ -128,11 +136,13 @@ export function getPersistentHubPayload() {
     label: BUTTON_LABELS.OPEN_HUB,
     emoji: EMOJIS.DASHBOARD,
   });
+  const eventsButton = createEventsButton();
   const knowledgeButton = createKnowledgeButton();
   const profileButton = createProfileButton();
 
   return {
     embeds: [embed],
-    components: createActionRows(openHubButton, knowledgeButton, profileButton),
+    components: createActionRows(openHubButton, eventsButton, knowledgeButton, profileButton),
   };
 }
+

@@ -27,7 +27,10 @@ export const NAMESPACES = Object.freeze({
   REQUEST: 'request',
   PROFILE: 'profile',
   MODAL: 'modal',
+  EVENT: 'event',
+  MENTOR: 'mentor',
 });
+
 
 /**
  * Builds a standardized custom ID.
@@ -105,4 +108,19 @@ export const CUSTOM_IDS = Object.freeze({
   HUB_MAIN: buildCustomId(NAMESPACES.HUB, 'main'),
   HUB_KNOWLEDGE: buildCustomId(NAMESPACES.HUB, 'knowledge'),
   HUB_PROFILE: buildCustomId(NAMESPACES.HUB, 'profile'),
+  HUB_EVENTS: buildCustomId(NAMESPACES.HUB, 'events'),
+
+  EVENT_ADD: buildCustomId(NAMESPACES.EVENT, 'add'),
+  EVENT_SELECT: buildCustomId(NAMESPACES.EVENT, 'select'),
+
+  TEAM_ADD: buildCustomId(NAMESPACES.TEAM, 'add'),
+  TEAM_SELECT: buildCustomId(NAMESPACES.TEAM, 'select'),
+  TEAM_ASSIGN_MEMBERS: buildCustomId(NAMESPACES.TEAM, 'assign_members'),
+  TEAM_ASSIGN_MENTORS: buildCustomId(NAMESPACES.TEAM, 'assign_mentors'),
+
+  MENTOR_VIEW: buildCustomId(NAMESPACES.MENTOR, 'view'),
+
+  MODAL_EVENT_ADD: buildCustomId(NAMESPACES.MODAL, 'event_add'),
+  MODAL_TEAM_ADD: buildCustomId(NAMESPACES.MODAL, 'team_add'),
 });
+

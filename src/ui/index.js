@@ -7,4 +7,10 @@ export * from './components/c_actionRows.js';
 export * from './embeds/c_embedBuilder.js';
 export * from './navigation/c_navigation.js';
 export * from './view_hub.js';
+export * from './view_events.js';
+export * from './view_event_detail.js';
+export * from './view_teams.js';
+export * from './view_mentors.js';
+export * from './view_assign.js';
+
 

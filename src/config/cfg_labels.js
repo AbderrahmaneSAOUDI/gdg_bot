@@ -24,6 +24,15 @@ export const BUTTON_LABELS = Object.freeze({
   PROFILE: 'My Profile',
   BACK_TO_HUB: 'Back to Hub',
   OPEN_HUB: 'Open Team Hub',
+  EVENTS: 'Events',
+  ADD_EVENT: 'Add Event',
+  TEAMS: 'Teams',
+  ADD_TEAM: 'Add Team',
+  MENTORS: 'Mentors',
+  ASSIGN_MEMBERS: 'Assign Members',
+  ASSIGN_MENTORS: 'Assign Mentors',
+  DELETE_TEAM: 'Delete Team',
+  BACK_TO_EVENT: 'Back to Event',
 });
 
 export const SELECT_LABELS = Object.freeze({
@@ -33,6 +42,8 @@ export const SELECT_LABELS = Object.freeze({
   ACTIVITY_PLACEHOLDER: 'Select an activity or event...',
   CATEGORY_PLACEHOLDER: 'Select a category...',
   OPTION_PLACEHOLDER: 'Choose an option...',
+  EVENT_PLACEHOLDER: 'Select an event...',
+  COMPETITION_TEAM_PLACEHOLDER: 'Select a competition team...',
 });
 
 export const COMMON_TITLES = Object.freeze({
@@ -40,6 +51,9 @@ export const COMMON_TITLES = Object.freeze({
   TEAM_HUB: 'GDG Ghardaia — Team Hub',
   KNOWLEDGE: 'Knowledge Base & Resources',
   PROFILE: 'Member Profile',
+  EVENTS: 'Events & Competitions',
+  TEAMS: 'Competition Teams',
+  MENTORS: 'Mentors Roster',
   CONFIRMATION: 'Confirmation Required',
   ERROR: 'Error',
   SUCCESS: 'Success',
@@ -48,3 +62,4 @@ export const COMMON_TITLES = Object.freeze({
   EMPTY: 'No Data Available',
   LOADING: 'Loading',
 });
+

@@ -175,3 +175,65 @@ export function createNumberInput({
     maxLength: String(max).length,
   });
 }
+
+/**
+ * Creates the Add Event Modal.
+ */
+export function createEventAddModal({ customId = 'bot:modal:event_add' } = {}) {
+  const nameInput = createShortTextInput({
+    customId: 'event_name',
+    label: 'Event / Competition Name',
+    placeholder: 'e.g. Hackathon 2026 / DevFest',
+    required: true,
+    minLength: 3,
+    maxLength: 50,
+  });
+
+  const descInput = createLongTextInput({
+    customId: 'event_description',
+    label: 'Description & Competition Rules',
+    placeholder: 'Brief overview of the competition, theme, and tracks...',
+    required: false,
+    maxLength: 500,
+  });
+
+  return createModal({
+    customId,
+    title: 'Create New Event',
+    inputs: [nameInput, descInput],
+  });
+}
+
+/**
+ * Creates the Add Team Modal.
+ */
+export function createTeamAddModal({ customId, defaultNumber = 1 } = {}) {
+  const paddedNum = String(defaultNumber).padStart(2, '0');
+
+  const nameInput = createShortTextInput({
+    customId: 'team_name',
+    label: 'Team Name',
+    placeholder: `Team ${paddedNum}`,
+    value: `Team ${paddedNum}`,
+    required: true,
+    minLength: 2,
+    maxLength: 30,
+  });
+
+  const categoryInput = createShortTextInput({
+    customId: 'team_category',
+    label: 'Category / Track',
+    placeholder: 'e.g. Web Dev, AI/ML, Cloud, Design',
+    value: 'General',
+    required: true,
+    minLength: 2,
+    maxLength: 30,
+  });
+
+  return createModal({
+    customId,
+    title: 'Add New Competition Team',
+    inputs: [nameInput, categoryInput],
+  });
+}
+
