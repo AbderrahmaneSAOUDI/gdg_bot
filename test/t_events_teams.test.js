@@ -140,15 +140,21 @@ test('2. Role Permissions & @CORE View-Only Invariant Enforcement', async (t) =>
 test('3. UI Screen Payloads & Action Rows Integration', async (t) => {
   resetEventsStore();
 
-  await t.test('Events list payload contains embed and Add Event button', () => {
+  await t.test('Events list payload contains embed, Add Event button, and valid ActionRows', () => {
     const payload = getEventsPayload();
     assert.ok(payload.embeds?.length > 0);
     assert.ok(payload.components?.length > 0);
+    for (const row of payload.components) {
+      assert.equal(row.toJSON().type, 1); // ComponentType.ActionRow is 1
+    }
   });
 
-  await t.test('Event detail payload contains [Teams] and [Mentors] buttons', () => {
+  await t.test('Event detail payload contains [Teams] and [Mentors] buttons in valid ActionRows', () => {
     const payload = getEventDetailPayload('eventx');
     assert.ok(payload.embeds?.length > 0);
+    for (const row of payload.components) {
+      assert.equal(row.toJSON().type, 1);
+    }
 
     const buttonRow = payload.components[0];
     const buttons = buttonRow.components;
@@ -163,9 +169,12 @@ test('3. UI Screen Payloads & Action Rows Integration', async (t) => {
     assert.equal(buttons[1].data.custom_id, 'bot:mentor:view:eventx');
   });
 
-  await t.test('Teams view payload shows all 3 teams with Add Team, Assign, and Delete buttons', () => {
+  await t.test('Teams view payload shows all 3 teams with Add Team, Assign, and Delete buttons in valid ActionRows', () => {
     const payload = getTeamsPayload('eventx');
     assert.ok(payload.embeds?.length > 0);
+    for (const row of payload.components) {
+      assert.equal(row.toJSON().type, 1);
+    }
 
     const fields = payload.embeds[0].data.fields;
     assert.equal(fields.length, 3);
@@ -181,18 +190,25 @@ test('3. UI Screen Payloads & Action Rows Integration', async (t) => {
     assert.ok(actionRow.components.some((btn) => btn.data.label === BUTTON_LABELS.DELETE_TEAM));
   });
 
-  await t.test('Assignment payload provides target team selector and user select menu', () => {
+  await t.test('Assignment payload provides target team selector and user select menu in valid ActionRows', () => {
     const payload = getAssignPayload({ eventId: 'eventx', type: 'members' });
     assert.ok(payload.embeds?.length > 0);
     assert.equal(payload.components.length, 3); // Team select, User select, Back row
+    for (const row of payload.components) {
+      assert.equal(row.toJSON().type, 1);
+    }
   });
 
-  await t.test('Delete payload provides team picker select menu', () => {
+  await t.test('Delete payload provides team picker select menu in valid ActionRows', () => {
     const payload = getDeleteTeamPayload('eventx');
     assert.ok(payload.embeds?.length > 0);
     assert.equal(payload.components.length, 2); // Select menu and Back row
+    for (const row of payload.components) {
+      assert.equal(row.toJSON().type, 1);
+    }
   });
 });
+
 
 test('4. Custom IDs and Namespaces for Events and Teams', async () => {
   assert.equal(NAMESPACES.EVENT, 'event');

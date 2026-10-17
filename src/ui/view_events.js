@@ -36,8 +36,8 @@ export function getEventsPayload() {
     );
   }
 
-  // Row 1: Event Selector if events exist
-  const components = [];
+  // Row 1 & 2: Action Components
+  const elements = [];
   if (events.length > 0) {
     const eventSelectMenu = createOptionSelectMenu({
       customId: CUSTOM_IDS.EVENT_SELECT,
@@ -49,20 +49,19 @@ export function getEventsPayload() {
         emoji: EMOJIS.EVENT,
       })),
     });
-    components.push(eventSelectMenu);
+    elements.push(eventSelectMenu);
   }
 
-  // Row 2: Add Event & Back to Hub
   const addEventBtn = createAddEventButton();
   const backBtn = createBackButton({
     customId: CUSTOM_IDS.HUB_MAIN,
     label: BUTTON_LABELS.BACK_TO_HUB,
   });
-
-  components.push(...createActionRows(addEventBtn, backBtn));
+  elements.push(addEventBtn, backBtn);
 
   return {
     embeds: [embed],
-    components,
+    components: createActionRows(...elements),
   };
 }
+

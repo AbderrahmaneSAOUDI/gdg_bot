@@ -26,13 +26,14 @@ export function getEventDetailPayload(eventId) {
     });
     return {
       embeds: [errorEmbed],
-      components: [
+      components: createActionRows(
         createBackButton({
           customId: CUSTOM_IDS.HUB_EVENTS,
           label: 'Back to Events',
-        }),
-      ],
+        })
+      ),
     };
+
   }
 
   const teamsCount = event.teams?.length || 0;

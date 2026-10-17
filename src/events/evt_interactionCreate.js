@@ -48,21 +48,14 @@ export async function execute(interaction) {
     try {
       await command.execute(interaction);
     } catch (error) {
-      console.error(`[ERROR] Error executing command '${interaction.commandName}':`, error);
-
-      const errorMessage = {
-        content: `${EMOJIS.ERROR} ${ERROR_MESSAGES.OPERATION_FAILED}`,
-        flags: MessageFlags.Ephemeral,
-      };
-
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(errorMessage).catch(() => {});
-      } else {
-        await interaction.reply(errorMessage).catch(() => {});
+      if (error?.code !== 10062) {
+        console.error(`[ERROR] Error executing command '${interaction.commandName}':`, error);
       }
+      await sendErrorMessage(interaction, error);
     }
     return;
   }
+
 
   // 2. Handle Button Component Interactions
   if (interaction.isButton()) {
@@ -190,10 +183,13 @@ export async function execute(interaction) {
         });
       }
     } catch (error) {
-      console.error(`[ERROR] Failed to handle button interaction '${interaction.customId}':`, error);
-      await sendErrorMessage(interaction);
+      if (error?.code !== 10062) {
+        console.error(`[ERROR] Failed to handle button interaction '${interaction.customId}':`, error);
+      }
+      await sendErrorMessage(interaction, error);
     }
     return;
+
   }
 
   // 3. Handle String Select Menu Interactions
@@ -243,8 +239,10 @@ export async function execute(interaction) {
         return;
       }
     } catch (error) {
-      console.error(`[ERROR] StringSelectMenu failed for '${interaction.customId}':`, error);
-      await sendErrorMessage(interaction);
+      if (error?.code !== 10062) {
+        console.error(`[ERROR] StringSelectMenu failed for '${interaction.customId}':`, error);
+      }
+      await sendErrorMessage(interaction, error);
     }
     return;
   }
@@ -294,8 +292,10 @@ export async function execute(interaction) {
         return;
       }
     } catch (error) {
-      console.error(`[ERROR] UserSelectMenu failed for '${interaction.customId}':`, error);
-      await sendErrorMessage(interaction);
+      if (error?.code !== 10062) {
+        console.error(`[ERROR] UserSelectMenu failed for '${interaction.customId}':`, error);
+      }
+      await sendErrorMessage(interaction, error);
     }
     return;
   }
@@ -340,13 +340,22 @@ export async function execute(interaction) {
         });
       }
     } catch (error) {
-      console.error(`[ERROR] Modal submission failed for '${interaction.customId}':`, error);
-      await sendErrorMessage(interaction);
+      if (error?.code !== 10062) {
+        console.error(`[ERROR] Modal submission failed for '${interaction.customId}':`, error);
+      }
+      await sendErrorMessage(interaction, error);
     }
   }
+
 }
 
-async function sendErrorMessage(interaction) {
+async function sendErrorMessage(interaction, error) {
+  if (error?.code === 10062) {
+    // Discord 3-second acknowledgement window expired
+    console.warn(`[WARN] Interaction expired before response could be sent.`);
+    return;
+  }
+
   const errorMessage = {
     content: `${EMOJIS.WARNING} ${ERROR_MESSAGES.OPERATION_FAILED}`,
     flags: MessageFlags.Ephemeral,
@@ -358,3 +367,4 @@ async function sendErrorMessage(interaction) {
     await interaction.reply(errorMessage).catch(() => {});
   }
 }
+

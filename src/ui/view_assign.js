@@ -51,7 +51,7 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
     footerText: EVENT_MESSAGES.FOOTER,
   });
 
-  const components = [];
+  const elements = [];
 
   // Row 1: Team Selector (Choose which team to assign to)
   if (event.teams.length > 0) {
@@ -66,7 +66,7 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
         default: t.id === targetTeam?.id,
       })),
     });
-    components.push(teamSelectMenu);
+    elements.push(teamSelectMenu);
   }
 
   // Row 2: Native Discord User Select Menu
@@ -83,7 +83,7 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
       minValues: 1,
       maxValues: 10,
     });
-    components.push(userSelectMenu);
+    elements.push(userSelectMenu);
   }
 
   // Row 3: Back Button
@@ -91,12 +91,11 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
     customId: buildCustomId(NAMESPACES.TEAM, 'view', event.id),
     label: BUTTON_LABELS.BACK_TO_EVENT,
   });
-
-  components.push(...createActionRows(backBtn));
+  elements.push(backBtn);
 
   return {
     embeds: [embed],
-    components,
+    components: createActionRows(...elements),
   };
 }
 
@@ -114,12 +113,12 @@ export function getDeleteTeamPayload(eventId) {
           color: GOOGLE_COLORS.YELLOW,
         }),
       ],
-      components: [
+      components: createActionRows(
         createBackButton({
           customId: buildCustomId(NAMESPACES.TEAM, 'view', eventId),
           label: BUTTON_LABELS.BACK_TO_EVENT,
-        }),
-      ],
+        })
+      ),
     };
   }
 
@@ -148,6 +147,7 @@ export function getDeleteTeamPayload(eventId) {
 
   return {
     embeds: [embed],
-    components: [deleteSelectMenu, ...createActionRows(backBtn)],
+    components: createActionRows(deleteSelectMenu, backBtn),
   };
 }
+
