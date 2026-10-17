@@ -48,10 +48,11 @@ test('1. Event & Team Data Store with 3 Default Teams', async (t) => {
     assert.ok(eventX);
     assert.equal(eventX.name, 'EventX 3.0');
     assert.equal(eventX.teams.length, 3);
-    assert.equal(eventX.teams[0].name, 'Team 01');
-    assert.equal(eventX.teams[1].name, 'Team 02');
-    assert.equal(eventX.teams[2].name, 'Team 03');
+    assert.equal(eventX.teams[0].name, 'Team 1');
+    assert.equal(eventX.teams[1].name, 'Team 2');
+    assert.equal(eventX.teams[2].name, 'Team 3');
   });
+
 
   await t.test('CRUD operations on teams: Add, Assign, and Delete', () => {
     // 1. Add Team 04
@@ -178,9 +179,10 @@ test('3. UI Screen Payloads & Action Rows Integration', async (t) => {
 
     const fields = payload.embeds[0].data.fields;
     assert.equal(fields.length, 3);
-    assert.ok(fields[0].name.includes('Team 01'));
-    assert.ok(fields[1].name.includes('Team 02'));
-    assert.ok(fields[2].name.includes('Team 03'));
+    assert.ok(fields[0].name.includes('Team 1'));
+    assert.ok(fields[1].name.includes('Team 2'));
+    assert.ok(fields[2].name.includes('Team 3'));
+
 
     // Check action rows down buttons
     const actionRow = payload.components[0];
