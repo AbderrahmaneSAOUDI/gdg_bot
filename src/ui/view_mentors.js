@@ -10,11 +10,16 @@ import { createActionRows } from './components/c_actionRows.js';
 import { createStandardEmbed } from './embeds/c_embedBuilder.js';
 import { EVENT_MESSAGES } from '../messages/msg_events.js';
 import { getEventById } from '../data/json_events.js';
+import { formatUserName, formatGuildName } from '../utils/index.js';
 
 /**
  * Builds the payload for the Mentors Roster of an event.
+ * Resolves mentors to human-readable names.
+ *
+ * @param {string} eventId
+ * @param {import('discord.js').Guild} [guild]
  */
-export function getMentorsPayload(eventId) {
+export function getMentorsPayload(eventId, guild = null) {
   const event = getEventById(eventId);
   if (!event) {
     const errorEmbed = createStandardEmbed({
@@ -24,6 +29,8 @@ export function getMentorsPayload(eventId) {
     });
     return { embeds: [errorEmbed], components: [] };
   }
+
+  const serverName = formatGuildName(guild);
 
   // Aggregate mentors and their team assignments
   const mentorMap = new Map(); // mentorId -> array of team names
@@ -40,19 +47,22 @@ export function getMentorsPayload(eventId) {
     title: EVENT_MESSAGES.FORMAT_MENTORS_TITLE(event.name),
     description:
       mentorMap.size > 0
-        ? `Dedicated mentors guiding teams during **${event.name}**.\n\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`
-        : `${EVENT_MESSAGES.NO_MENTORS_ASSIGNED}\n\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`,
+        ? `Server: **${serverName}**\nDedicated mentors guiding teams during **${event.name}**.\n\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`
+        : `Server: **${serverName}**\n${EVENT_MESSAGES.NO_MENTORS_ASSIGNED}\n\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`,
     color: GOOGLE_COLORS.YELLOW,
-    footerText: EVENT_MESSAGES.FOOTER,
+    footerText: `${serverName} • ${EVENT_MESSAGES.FOOTER}`,
   });
 
   if (mentorMap.size > 0) {
     embed.addFields(
-      Array.from(mentorMap.entries()).map(([mentorId, teamNames]) => ({
-        name: `${EMOJIS.MENTOR} Mentor <@${mentorId}>`,
-        value: `• Guiding: **${teamNames.join(', ')}**\n• Status: \`Active Mentor\``,
-        inline: true,
-      }))
+      Array.from(mentorMap.entries()).map(([mentorId, teamNames]) => {
+        const mentorName = formatUserName(guild, mentorId);
+        return {
+          name: `${EMOJIS.MENTOR} ${mentorName}`,
+          value: `• Guiding: **${teamNames.join(', ')}**\n• Status: \`Active Mentor\``,
+          inline: true,
+        };
+      })
     );
   }
 

@@ -269,3 +269,13 @@ export function createDeleteTeamButton({
   return createDangerButton({ customId, label, emoji, disabled });
 }
 
+export function createExtractButton({
+  customId = CUSTOM_IDS.HUB_EXTRACT_SERVER,
+  label = BUTTON_LABELS.EXTRACT_SERVER,
+  emoji = EMOJIS.EXPORT,
+  disabled = false,
+} = {}) {
+  return createSecondaryButton({ customId, label, emoji, disabled });
+}
+
+

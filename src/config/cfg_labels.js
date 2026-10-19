@@ -33,6 +33,7 @@ export const BUTTON_LABELS = Object.freeze({
   ASSIGN_MENTORS: 'Assign Mentors',
   DELETE_TEAM: 'Delete Team',
   BACK_TO_EVENT: 'Back to Event',
+  EXTRACT_SERVER: 'Extract Server Data',
 });
 
 export const SELECT_LABELS = Object.freeze({
@@ -54,6 +55,7 @@ export const COMMON_TITLES = Object.freeze({
   EVENTS: 'Events & Competitions',
   TEAMS: 'Competition Teams',
   MENTORS: 'Mentors Roster',
+  EXTRACTOR: 'Server Data Extractor',
   CONFIRMATION: 'Confirmation Required',
   ERROR: 'Error',
   SUCCESS: 'Success',

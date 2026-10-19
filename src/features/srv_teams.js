@@ -18,14 +18,12 @@ import {
  * @param {import('discord.js').Guild} [params.guild]
  * @param {string} params.eventId
  * @param {string} [params.name]
- * @param {string} [params.category]
  * @param {number} [params.number]
  */
 export async function createTeamWithRoles({
   guild,
   eventId,
   name,
-  category,
   number,
 }) {
   const event = getEventById(eventId);
@@ -58,7 +56,6 @@ export async function createTeamWithRoles({
   const newTeam = dbAddTeam(eventId, {
     name,
     number: calculatedNum,
-    category,
     memberRoleId,
     mentorRoleId,
   });

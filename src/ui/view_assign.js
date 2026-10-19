@@ -11,6 +11,7 @@ import { createActionRows } from './components/c_actionRows.js';
 import { createStandardEmbed } from './embeds/c_embedBuilder.js';
 import { EVENT_MESSAGES } from '../messages/msg_events.js';
 import { getEventById } from '../data/json_events.js';
+import { formatGuildName } from '../utils/index.js';
 
 /**
  * Builds the interactive Assignment Screen (Assign Members or Assign Mentors).
@@ -19,8 +20,9 @@ import { getEventById } from '../data/json_events.js';
  * @param {string} params.eventId
  * @param {'members'|'mentors'} params.type
  * @param {string} [params.selectedTeamId]
+ * @param {import('discord.js').Guild} [params.guild]
  */
-export function getAssignPayload({ eventId, type = 'members', selectedTeamId = null }) {
+export function getAssignPayload({ eventId, type = 'members', selectedTeamId = null, guild = null }) {
   const event = getEventById(eventId);
   if (!event) {
     const errorEmbed = createStandardEmbed({
@@ -31,6 +33,7 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
     return { embeds: [errorEmbed], components: [] };
   }
 
+  const serverName = formatGuildName(guild);
   const isMembers = type === 'members';
   const targetTeam = selectedTeamId
     ? event.teams.find((t) => t.id === selectedTeamId)
@@ -48,7 +51,7 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
     title,
     description: `${description}\n\n**Current Target Team**: \`${targetTeam?.name || 'None'}\`\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`,
     color: isMembers ? GOOGLE_COLORS.BLUE : GOOGLE_COLORS.YELLOW,
-    footerText: EVENT_MESSAGES.FOOTER,
+    footerText: `${serverName} • ${EVENT_MESSAGES.FOOTER}`,
   });
 
   const elements = [];
@@ -101,9 +104,14 @@ export function getAssignPayload({ eventId, type = 'members', selectedTeamId = n
 
 /**
  * Builds the Delete Team Picker Screen.
+ *
+ * @param {string} eventId
+ * @param {import('discord.js').Guild} [guild]
  */
-export function getDeleteTeamPayload(eventId) {
+export function getDeleteTeamPayload(eventId, guild = null) {
   const event = getEventById(eventId);
+  const serverName = formatGuildName(guild);
+
   if (!event || !event.teams || event.teams.length === 0) {
     return {
       embeds: [
@@ -111,6 +119,7 @@ export function getDeleteTeamPayload(eventId) {
           title: 'No Teams to Delete',
           description: 'There are no teams available to delete for this event.',
           color: GOOGLE_COLORS.YELLOW,
+          footerText: `${serverName} • ${EVENT_MESSAGES.FOOTER}`,
         }),
       ],
       components: createActionRows(
@@ -126,7 +135,7 @@ export function getDeleteTeamPayload(eventId) {
     title: `${EMOJIS.DELETE} Delete a Team`,
     description: `Select a team from the list below to permanently remove it and clean up its Member & Mentor Discord roles.`,
     color: GOOGLE_COLORS.RED,
-    footerText: EVENT_MESSAGES.FOOTER,
+    footerText: `${serverName} • ${EVENT_MESSAGES.FOOTER}`,
   });
 
   const deleteSelectMenu = createOptionSelectMenu({
@@ -150,4 +159,3 @@ export function getDeleteTeamPayload(eventId) {
     components: createActionRows(deleteSelectMenu, backBtn),
   };
 }
-

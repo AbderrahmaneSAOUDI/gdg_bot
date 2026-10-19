@@ -220,20 +220,10 @@ export function createTeamAddModal({ customId, defaultNumber = 1 } = {}) {
     maxLength: 30,
   });
 
-  const categoryInput = createShortTextInput({
-    customId: 'team_category',
-    label: 'Category / Track',
-    placeholder: 'e.g. Web Dev, AI/ML, Cloud, Design',
-    value: 'General',
-    required: true,
-    minLength: 2,
-    maxLength: 30,
-  });
-
   return createModal({
     customId,
-    title: 'Add New Competition Team',
-    inputs: [nameInput, categoryInput],
+    title: 'Add New Team',
+    inputs: [nameInput],
   });
 }
 

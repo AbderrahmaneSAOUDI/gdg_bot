@@ -11,12 +11,16 @@ import { createActionRows } from './components/c_actionRows.js';
 import { createStandardEmbed } from './embeds/c_embedBuilder.js';
 import { EVENT_MESSAGES } from '../messages/msg_events.js';
 import { getEventById } from '../data/json_events.js';
+import { formatGuildName } from '../utils/index.js';
 
 /**
  * Builds the payload for a single Event's Dashboard.
  * Presents the key [Teams] and [Mentors] buttons requested by user.
+ *
+ * @param {string} eventId
+ * @param {import('discord.js').Guild} [guild]
  */
-export function getEventDetailPayload(eventId) {
+export function getEventDetailPayload(eventId, guild = null) {
   const event = getEventById(eventId);
   if (!event) {
     const errorEmbed = createStandardEmbed({
@@ -33,16 +37,16 @@ export function getEventDetailPayload(eventId) {
         })
       ),
     };
-
   }
 
+  const serverName = formatGuildName(guild);
   const teamsCount = event.teams?.length || 0;
   const totalMembers = event.teams?.reduce((acc, t) => acc + (t.members?.length || 0), 0) || 0;
   const totalMentors = event.teams?.reduce((acc, t) => acc + (t.mentors?.length || 0), 0) || 0;
 
   const embed = createStandardEmbed({
     title: EVENT_MESSAGES.FORMAT_EVENT_TITLE(event.name),
-    description: `${event.description || 'Competition & team hub.'}\n\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`,
+    description: `Server: **${serverName}**\n${event.description || 'Competition & team hub.'}\n\n${EVENT_MESSAGES.CORE_VIEW_ONLY_NOTICE}`,
     color: GOOGLE_COLORS.BLUE,
     fields: [
       {
@@ -61,7 +65,7 @@ export function getEventDetailPayload(eventId) {
         inline: true,
       },
     ],
-    footerText: EVENT_MESSAGES.FOOTER,
+    footerText: `${serverName} • ${EVENT_MESSAGES.FOOTER}`,
   });
 
   const teamsBtn = createTeamsButton({

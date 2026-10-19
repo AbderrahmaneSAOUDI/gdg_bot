@@ -21,6 +21,8 @@ export const EMOJIS = Object.freeze({
   VIEW: '👁️',
   OPEN: '📂',
   SEARCH: '🔍',
+  EXPORT: '📥',
+  PACKAGE: '📦',
 
   // Hub & Sections
   DASHBOARD: '🚀',

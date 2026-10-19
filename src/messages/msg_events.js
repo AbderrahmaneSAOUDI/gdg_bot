@@ -12,8 +12,6 @@ export const EVENT_MESSAGES = Object.freeze({
   FORMAT_EVENT_TITLE: (eventName) => `${EMOJIS.EVENT} ${eventName} — Dashboard`,
   FORMAT_TEAMS_TITLE: (eventName) => `${EMOJIS.TEAM} ${eventName} — Teams & Roster`,
   FORMAT_MENTORS_TITLE: (eventName) => `${EMOJIS.MENTOR} ${eventName} — Mentors Directory`,
-
-  CORE_VIEW_ONLY_NOTICE: '🔒 **Staff Invariant**: `@CORE` has view-only access (typing and reactions are disabled).',
   
   ASSIGN_MEMBERS_TITLE: `${EMOJIS.PROFILE} Assign Members to Team`,
   ASSIGN_MEMBERS_DESCRIPTION: 'Select a team and pick members from the native Discord user menu below to grant them the team Member role.',

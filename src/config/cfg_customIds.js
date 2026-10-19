@@ -109,6 +109,7 @@ export const CUSTOM_IDS = Object.freeze({
   HUB_KNOWLEDGE: buildCustomId(NAMESPACES.HUB, 'knowledge'),
   HUB_PROFILE: buildCustomId(NAMESPACES.HUB, 'profile'),
   HUB_EVENTS: buildCustomId(NAMESPACES.HUB, 'events'),
+  HUB_EXTRACT_SERVER: buildCustomId(NAMESPACES.HUB, 'extract_server'),
 
   EVENT_ADD: buildCustomId(NAMESPACES.EVENT, 'add'),
   EVENT_SELECT: buildCustomId(NAMESPACES.EVENT, 'select'),

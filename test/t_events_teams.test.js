@@ -53,16 +53,13 @@ test('1. Event & Team Data Store with 3 Default Teams', async (t) => {
     assert.equal(eventX.teams[2].name, 'Team 3');
   });
 
-
   await t.test('CRUD operations on teams: Add, Assign, and Delete', () => {
     // 1. Add Team 04
     const team4 = addTeam('eventx', {
       name: 'Team 04',
-      category: 'Cybersecurity',
     });
     assert.ok(team4);
     assert.equal(team4.name, 'Team 04');
-    assert.equal(team4.category, 'Cybersecurity');
     assert.equal(team4.number, 4);
 
     // 2. Assign Members & Mentors
@@ -170,26 +167,48 @@ test('3. UI Screen Payloads & Action Rows Integration', async (t) => {
     assert.equal(buttons[1].data.custom_id, 'bot:mentor:view:eventx');
   });
 
-  await t.test('Teams view payload shows all 3 teams with Add Team, Assign, and Delete buttons in valid ActionRows', () => {
-    const payload = getTeamsPayload('eventx');
-    assert.ok(payload.embeds?.length > 0);
-    for (const row of payload.components) {
+  await t.test('Teams view payload shows paginated team view with Next/Previous and one-name-per-line formatting', () => {
+    // Page 1 (Team 1)
+    const payloadP1 = getTeamsPayload('eventx', null, 1);
+    assert.ok(payloadP1.embeds?.length > 0);
+    assert.equal(payloadP1.components.length, 3); // Pagination row, Team action row, Directory row
+
+    for (const row of payloadP1.components) {
       assert.equal(row.toJSON().type, 1);
     }
 
-    const fields = payload.embeds[0].data.fields;
-    assert.equal(fields.length, 3);
-    assert.ok(fields[0].name.includes('Team 1'));
-    assert.ok(fields[1].name.includes('Team 2'));
-    assert.ok(fields[2].name.includes('Team 3'));
+    const embedP1 = payloadP1.embeds[0].data;
+    assert.ok(embedP1.title.includes('Team 1'));
 
+    // Check one name per line formatting in Members field
+    const membersField = embedP1.fields.find((f) => f.name.includes('Members'));
+    assert.ok(membersField);
+    assert.ok(membersField.value.includes('\n• '));
 
-    // Check action rows down buttons
-    const actionRow = payload.components[0];
-    assert.ok(actionRow.components.some((btn) => btn.data.label === BUTTON_LABELS.ADD_TEAM));
+    // Check pagination controls
+    const pagRow = payloadP1.components[0];
+    const prevBtn = pagRow.components[0];
+    const indicatorBtn = pagRow.components[1];
+    const nextBtn = pagRow.components[2];
+    assert.equal(prevBtn.data.disabled, true); // First page
+    assert.equal(indicatorBtn.data.label, 'Team 1 of 3');
+    assert.equal(nextBtn.data.disabled, false);
+
+    // Page 2 (Team 2)
+    const payloadP2 = getTeamsPayload('eventx', null, 2);
+    const embedP2 = payloadP2.embeds[0].data;
+    assert.ok(embedP2.title.includes('Team 2'));
+
+    // Check team action buttons
+    const actionRow = payloadP1.components[1];
     assert.ok(actionRow.components.some((btn) => btn.data.label === BUTTON_LABELS.ASSIGN_MEMBERS));
     assert.ok(actionRow.components.some((btn) => btn.data.label === BUTTON_LABELS.ASSIGN_MENTORS));
     assert.ok(actionRow.components.some((btn) => btn.data.label === BUTTON_LABELS.DELETE_TEAM));
+
+    // Check directory row
+    const navRow = payloadP1.components[2];
+    assert.ok(navRow.components.some((btn) => btn.data.label === BUTTON_LABELS.ADD_TEAM));
+    assert.ok(navRow.components.some((btn) => btn.data.label === BUTTON_LABELS.BACK_TO_EVENT));
   });
 
   await t.test('Assignment payload provides target team selector and user select menu in valid ActionRows', () => {
@@ -210,7 +229,6 @@ test('3. UI Screen Payloads & Action Rows Integration', async (t) => {
     }
   });
 });
-
 
 test('4. Custom IDs and Namespaces for Events and Teams', async () => {
   assert.equal(NAMESPACES.EVENT, 'event');

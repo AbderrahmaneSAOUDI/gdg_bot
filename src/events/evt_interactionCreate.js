@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Events, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import {
   getHubPayload,
@@ -12,6 +13,8 @@ import {
   getDeleteTeamPayload,
   createEventAddModal,
   createTeamAddModal,
+  createLoadingEmbed,
+  createSuccessEmbed,
 } from '../ui/index.js';
 import {
   parseCustomId,
@@ -22,6 +25,7 @@ import {
 import { ERROR_MESSAGES } from '../messages/msg_errors.js';
 import { COMMON_MESSAGES } from '../messages/msg_common.js';
 import { EVENT_MESSAGES } from '../messages/msg_events.js';
+import { EXTRACTOR_MESSAGES } from '../messages/msg_extractor.js';
 import { EMOJIS } from '../config/cfg_emojis.js';
 import {
   registerEvent,
@@ -30,6 +34,7 @@ import {
   removeTeamWithRoles,
   assignMembersWithRoles,
   assignMentorsWithRoles,
+  extractServerData,
 } from '../features/index.js';
 
 export const name = Events.InteractionCreate;
@@ -55,7 +60,6 @@ export async function execute(interaction) {
     }
     return;
   }
-
 
   // 2. Handle Button Component Interactions
   if (interaction.isButton()) {
@@ -107,6 +111,69 @@ export async function execute(interaction) {
         });
       }
 
+      // Admin action: Extract whole server to server_data folder
+      if (
+        interaction.customId === CUSTOM_IDS.HUB_EXTRACT_SERVER ||
+        (parsed.namespace === NAMESPACES.HUB && parsed.action === 'extract_server')
+      ) {
+        if (!interaction.guild) {
+          return interaction.reply({
+            content: `${EMOJIS.WARNING} ${EXTRACTOR_MESSAGES.NO_GUILD}`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        const hasPermission =
+          interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
+          interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
+
+        if (!hasPermission) {
+          return interaction.reply({
+            content: `${EMOJIS.LOCK} ${ERROR_MESSAGES.ADMIN_REQUIRED}`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        let lastEditTime = 0;
+        const onProgress = async ({ stage, current, total, channelName }) => {
+          const now = Date.now();
+          if (now - lastEditTime < 1500 && current !== total) return;
+          lastEditTime = now;
+
+          const progressText =
+            stage === 'roles'
+              ? EXTRACTOR_MESSAGES.PROGRESS_ROLES
+              : EXTRACTOR_MESSAGES.PROGRESS_CHANNELS(current, total, channelName);
+
+          const loadingEmbed = createLoadingEmbed({
+            title: EXTRACTOR_MESSAGES.START_TITLE,
+            message: progressText,
+          });
+
+          await interaction.editReply({
+            embeds: [loadingEmbed],
+          }).catch(() => {});
+        };
+
+        const targetDir = path.resolve(process.cwd(), 'server_data');
+        const stats = await extractServerData({
+          guild: interaction.guild,
+          outputDir: targetDir,
+          onProgress,
+        });
+
+        const successEmbed = createSuccessEmbed({
+          title: EXTRACTOR_MESSAGES.SUCCESS_TITLE,
+          description: EXTRACTOR_MESSAGES.SUCCESS_DESC(stats),
+        });
+
+        return await interaction.editReply({
+          embeds: [successEmbed],
+        });
+      }
+
       // Modal triggers for Add Event & Add Team
       if (
         interaction.customId === CUSTOM_IDS.EVENT_ADD ||
@@ -155,19 +222,33 @@ export async function execute(interaction) {
         interaction.customId === CUSTOM_IDS.HUB_EVENTS ||
         (parsed.namespace === NAMESPACES.HUB && parsed.action === 'events')
       ) {
-        payload = getEventsPayload();
+        payload = getEventsPayload(interaction.guild);
       } else if (parsed.namespace === NAMESPACES.EVENT && parsed.action === 'detail') {
-        payload = getEventDetailPayload(parsed.params[0]);
+        payload = getEventDetailPayload(parsed.params[0], interaction.guild);
       } else if (parsed.namespace === NAMESPACES.TEAM && parsed.action === 'view') {
-        payload = getTeamsPayload(parsed.params[0]);
+        payload = getTeamsPayload(parsed.params[0], interaction.guild, 1);
+      } else if (parsed.namespace === NAMESPACES.TEAM && parsed.action === 'page') {
+        const eventId = parsed.params[0];
+        const page = parseInt(parsed.params[1], 10) || 1;
+        payload = getTeamsPayload(eventId, interaction.guild, page);
       } else if (parsed.namespace === NAMESPACES.MENTOR && parsed.action === 'view') {
-        payload = getMentorsPayload(parsed.params[0]);
+        payload = getMentorsPayload(parsed.params[0], interaction.guild);
       } else if (parsed.namespace === NAMESPACES.TEAM && parsed.action === 'assign_members') {
-        payload = getAssignPayload({ eventId: parsed.params[0], type: 'members' });
+        payload = getAssignPayload({
+          eventId: parsed.params[0],
+          type: 'members',
+          selectedTeamId: parsed.params[1] || null,
+          guild: interaction.guild,
+        });
       } else if (parsed.namespace === NAMESPACES.TEAM && parsed.action === 'assign_mentors') {
-        payload = getAssignPayload({ eventId: parsed.params[0], type: 'mentors' });
+        payload = getAssignPayload({
+          eventId: parsed.params[0],
+          type: 'mentors',
+          selectedTeamId: parsed.params[1] || null,
+          guild: interaction.guild,
+        });
       } else if (parsed.namespace === NAMESPACES.TEAM && parsed.action === 'delete_menu') {
-        payload = getDeleteTeamPayload(parsed.params[0]);
+        payload = getDeleteTeamPayload(parsed.params[0], interaction.guild);
       } else {
         return;
       }
@@ -189,7 +270,6 @@ export async function execute(interaction) {
       await sendErrorMessage(interaction, error);
     }
     return;
-
   }
 
   // 3. Handle String Select Menu Interactions
@@ -204,7 +284,7 @@ export async function execute(interaction) {
         (parsed.namespace === NAMESPACES.EVENT && parsed.action === 'select')
       ) {
         const selectedEventId = interaction.values[0];
-        const payload = getEventDetailPayload(selectedEventId);
+        const payload = getEventDetailPayload(selectedEventId, interaction.guild);
         return await interaction.update(payload);
       }
 
@@ -213,7 +293,7 @@ export async function execute(interaction) {
         const eventId = parsed.params[0];
         const type = parsed.params[1] || 'members';
         const selectedTeamId = interaction.values[0];
-        const payload = getAssignPayload({ eventId, type, selectedTeamId });
+        const payload = getAssignPayload({ eventId, type, selectedTeamId, guild: interaction.guild });
         return await interaction.update(payload);
       }
 
@@ -227,7 +307,7 @@ export async function execute(interaction) {
           teamId,
         });
 
-        const payload = getTeamsPayload(eventId);
+        const payload = getTeamsPayload(eventId, interaction.guild, 1);
         await interaction.update(payload);
 
         if (deletedTeam) {
@@ -275,10 +355,13 @@ export async function execute(interaction) {
           });
         }
 
-        const payload = getTeamsPayload(eventId);
+        const event = getEvent(eventId);
+        const teamIndex = event?.teams?.findIndex((t) => t.id === teamId);
+        const targetPage = teamIndex !== -1 && teamIndex !== undefined ? teamIndex + 1 : 1;
+
+        const payload = getTeamsPayload(eventId, interaction.guild, targetPage);
         await interaction.update(payload);
 
-        const event = getEvent(eventId);
         const team = event?.teams?.find((t) => t.id === teamId);
         const successMsg =
           type === 'members'
@@ -312,7 +395,7 @@ export async function execute(interaction) {
         const description = interaction.fields.getTextInputValue('event_description');
 
         const newEvent = registerEvent({ name, description });
-        const payload = getEventDetailPayload(newEvent.id);
+        const payload = getEventDetailPayload(newEvent.id, interaction.guild);
 
         return await interaction.reply({
           ...payload,
@@ -324,16 +407,17 @@ export async function execute(interaction) {
       if (parsed.namespace === NAMESPACES.MODAL && parsed.action === 'team_add') {
         const eventId = parsed.params[0];
         const name = interaction.fields.getTextInputValue('team_name');
-        const category = interaction.fields.getTextInputValue('team_category');
 
         await createTeamWithRoles({
           guild: interaction.guild,
           eventId,
           name,
-          category,
         });
 
-        const payload = getTeamsPayload(eventId);
+        const event = getEvent(eventId);
+        const lastPage = event?.teams?.length || 1;
+        const payload = getTeamsPayload(eventId, interaction.guild, lastPage);
+
         return await interaction.reply({
           ...payload,
           flags: MessageFlags.Ephemeral,
@@ -346,7 +430,6 @@ export async function execute(interaction) {
       await sendErrorMessage(interaction, error);
     }
   }
-
 }
 
 async function sendErrorMessage(interaction, error) {
@@ -367,4 +450,3 @@ async function sendErrorMessage(interaction, error) {
     await interaction.reply(errorMessage).catch(() => {});
   }
 }
-

@@ -15,7 +15,7 @@ function getInitialSeedData() {
     {
       id: 'eventx',
       name: 'EventX 3.0',
-      description: 'Annual flagship hackathon & developer competition with categorized team tracks and dedicated mentorship.',
+      description: 'Internal simulation program by GDG Ghardaia where members step into a Core Team to plan a DevFest-scale event from start to finish—learning real event management through practice and developing future community leaders.',
       status: 'ACTIVE',
       coreRoleId: '1415741707420696657',
       teams: [
@@ -23,7 +23,6 @@ function getInitialSeedData() {
           id: 'team_01',
           number: 1,
           name: 'Team 1',
-          category: 'Web & Mobile',
           categoryId: '1559996031318626374',
           memberRoleId: '1559995383671685231',
           mentorRoleId: '1559995589519867916',
@@ -52,13 +51,13 @@ function getInitialSeedData() {
             '1558055798163116070',
             '1425914947400896573',
             '1559528310218694700',
+            '281888053121777664',
           ],
         },
         {
           id: 'team_02',
           number: 2,
           name: 'Team 2',
-          category: 'AI / ML',
           categoryId: '1559996209643651253',
           memberRoleId: '1559995509400408094',
           mentorRoleId: '1559995645119438932',
@@ -90,7 +89,6 @@ function getInitialSeedData() {
           id: 'team_03',
           number: 3,
           name: 'Team 3',
-          category: 'Cloud & Infrastructure',
           categoryId: '1560695112366039090',
           memberRoleId: '1560694286096277544',
           mentorRoleId: '1560694227871080479',
@@ -123,7 +121,6 @@ function getInitialSeedData() {
     },
   ];
 }
-
 
 // In-memory cache synced with disk
 let cachedEvents = null;
@@ -228,7 +225,7 @@ export function deleteEvent(eventId) {
 /**
  * Adds a team to an event.
  */
-export function addTeam(eventId, { name, number, category, memberRoleId, mentorRoleId }) {
+export function addTeam(eventId, { name, number, memberRoleId, mentorRoleId }) {
   const event = getEventById(eventId);
   if (!event) return null;
 
@@ -240,7 +237,6 @@ export function addTeam(eventId, { name, number, category, memberRoleId, mentorR
     id: teamId,
     number: nextNumber,
     name: formattedName,
-    category: category || 'General',
     memberRoleId: memberRoleId || null,
     mentorRoleId: mentorRoleId || null,
     members: [],

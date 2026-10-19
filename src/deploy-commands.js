@@ -8,8 +8,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const token = process.env.DISCORD_TOKEN;
-const clientId = process.env.CLIENT_ID;
+let clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
+
+// Fallback: derive client ID from bot token if missing
+if (!clientId && token) {
+  try {
+    clientId = Buffer.from(token.split('.')[0], 'base64').toString('utf-8');
+  } catch {}
+}
 
 if (!token || !clientId) {
   console.error('❌ [CONFIG ERROR] Missing DISCORD_TOKEN or CLIENT_ID in environment variables.');

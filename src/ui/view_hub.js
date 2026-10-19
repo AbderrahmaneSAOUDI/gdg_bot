@@ -1,3 +1,4 @@
+import { PermissionFlagsBits } from 'discord.js';
 import { GOOGLE_COLORS } from '../config/cfg_colors.js';
 import { EMOJIS } from '../config/cfg_emojis.js';
 import { BUTTON_LABELS, COMMON_TITLES } from '../config/cfg_labels.js';
@@ -8,6 +9,7 @@ import {
   createBackButton,
   createPrimaryButton,
   createEventsButton,
+  createExtractButton,
 } from './components/c_buttons.js';
 import { createActionRows } from './components/c_actionRows.js';
 import {
@@ -22,14 +24,21 @@ export const BRAND_COLORS = GOOGLE_COLORS;
 
 /**
  * Creates the navigation button row for the Main Team Hub.
- * Shows [🎉 Events], [📚 Knowledge], and [👤 My Profile].
+ * Shows [🎉 Events], [📚 Knowledge], [👤 My Profile], and [📥 Extract Server Data] (if admin).
+ *
+ * @param {boolean} [isAdmin=false]
  */
-export function createHubActionRows() {
+export function createHubActionRows(isAdmin = false) {
   const eventsButton = createEventsButton();
   const knowledgeButton = createKnowledgeButton();
   const profileButton = createProfileButton();
+  const buttons = [eventsButton, knowledgeButton, profileButton];
 
-  return createActionRows(eventsButton, knowledgeButton, profileButton);
+  if (isAdmin) {
+    buttons.push(createExtractButton());
+  }
+
+  return createActionRows(...buttons);
 }
 
 
@@ -51,6 +60,10 @@ export function createBackActionRow(extraButtons = []) {
  */
 export function getHubPayload(user, member) {
   const displayName = member?.displayName || user.displayName || user.username;
+  const isAdmin = Boolean(
+    member?.permissions?.has?.(PermissionFlagsBits.Administrator) ||
+    member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)
+  );
 
   const description = DASHBOARD_MESSAGES.FORMAT_HUB_DESCRIPTION(displayName);
 
@@ -65,7 +78,7 @@ export function getHubPayload(user, member) {
 
   return {
     embeds: [embed],
-    components: createHubActionRows(),
+    components: createHubActionRows(isAdmin),
   };
 }
 

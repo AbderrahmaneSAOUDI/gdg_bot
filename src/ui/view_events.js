@@ -5,25 +5,28 @@ import { CUSTOM_IDS, NAMESPACES, buildCustomId } from '../config/cfg_customIds.j
 import {
   createBackButton,
   createAddEventButton,
-  createPrimaryButton,
 } from './components/c_buttons.js';
 import { createOptionSelectMenu } from './components/c_selectMenus.js';
 import { createActionRows } from './components/c_actionRows.js';
 import { createStandardEmbed } from './embeds/c_embedBuilder.js';
 import { EVENT_MESSAGES } from '../messages/msg_events.js';
 import { getAllEvents } from '../data/json_events.js';
+import { formatGuildName } from '../utils/index.js';
 
 /**
  * Builds the payload for the Events & Competitions Directory.
+ *
+ * @param {import('discord.js').Guild} [guild]
  */
-export function getEventsPayload() {
+export function getEventsPayload(guild = null) {
   const events = getAllEvents();
+  const serverName = formatGuildName(guild);
 
   const embed = createStandardEmbed({
     title: EVENT_MESSAGES.DIRECTORY_TITLE,
     description: events.length > 0 ? EVENT_MESSAGES.DIRECTORY_DESCRIPTION : EVENT_MESSAGES.EMPTY_DIRECTORY,
     color: GOOGLE_COLORS.BLUE,
-    footerText: EVENT_MESSAGES.FOOTER,
+    footerText: `${serverName} • ${EVENT_MESSAGES.FOOTER}`,
   });
 
   if (events.length > 0) {
@@ -64,4 +67,3 @@ export function getEventsPayload() {
     components: createActionRows(...elements),
   };
 }
-

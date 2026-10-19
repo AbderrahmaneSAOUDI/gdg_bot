@@ -128,6 +128,36 @@
   6. Discord native `UserSelectMenu` is used for multi-member and mentor assignments.
 - **Affected Files / Scope**: `src/config/`, `src/features/`, `src/data/`, `src/ui/`, `src/messages/`, `src/events/`, `test/`
 
+### D-014
+- **Decision**: Human-Readable Entity Formatting for Users, Roles, Channels, and Servers.
+- **Status**: Accepted
+- **Rationale**: Direct user directive. Avoid displaying raw Discord snowflake mention codes like `<@1442993500399472710>`, `<#...>`, or `<@&...>`. All user, role, channel, and server representations in UI embeds and views must resolve to clean, readable display names using live cache with cold-start directory fallback.
+- **Directives**:
+  1. `formatUserName(guild, userId)`: Resolves member/user display names using guild cache, client cache, or `KNOWN_MEMBERS` directory.
+  2. `formatRoleName(guild, roleId, fallback)`: Resolves role names using guild cache or `KNOWN_ROLES` directory.
+  3. `formatChannelName(guild, channelId, fallback)`: Resolves channel names with proper `#` or `🔊 ` prefixes using guild cache or `KNOWN_CHANNELS` directory.
+  4. `formatGuildName(guild)`: Resolves guild name or defaults cleanly to `GDG Ghardaia`.
+  5. UI payloads must never emit raw mention code strings like `<@ID>`.
+- **Affected Files / Scope**: `src/utils/f_formatters.js`, `src/utils/index.js`, `src/ui/view_teams.js`, `src/ui/view_mentors.js`, `src/ui/view_event_detail.js`, `src/ui/view_assign.js`, `src/events/evt_interactionCreate.js`, `test/t_formatters.test.js`
+
+### D-015
+- **Decision**: Server Data Extractor with Dual Structured JSON & Human-Readable Transcripts, Admin Gating, and Categorized Hierarchy.
+- **Status**: Accepted
+- **Rationale**: Direct user directive to extract all guild metadata, roles, permission matrices, and complete message histories from server creation to the local `server_data` folder.
+- **Directives**:
+  1. Primary Trigger: An Administrator-only button [📥 Extract Server Data] rendered in `/bot` Hub action rows (`CUSTOM_IDS.HUB_EXTRACT_SERVER`).
+  2. Scope of Extraction: Full server info, all roles with permissions, channel-role permission matrix, categories as folders with `_category_info.json`, channels as subfolders with `channel_info.json` or `voice_info.json`.
+  3. Message History: All messages paginated back to creation saved in both structured `messages.json` and human-readable `transcript.txt`.
+  4. Security: Gated strictly to guild members with `Administrator` or `ManageGuild` permissions.
+  5. Gateway Intents: Uses standard unprivileged intents (`Guilds`, `GuildMessages`). REST message pagination via HTTP operates without requiring privileged WebSocket intents.
+- **Affected Files / Scope**: `src/config/cfg_customIds.js`, `src/config/cfg_labels.js`, `src/config/cfg_emojis.js`, `src/ui/components/c_buttons.js`, `src/ui/view_hub.js`, `src/messages/msg_extractor.js`, `src/utils/f_sanitizer.js`, `src/features/srv_extractor.js`, `src/events/evt_interactionCreate.js`, `src/index.js`, `test/t_extractor.test.js`
+
+### D-015
+- **Decision**: Teams View Pagination, One-Name-Per-Line Formatting, and Removal of Unrequested Categories.
+- **Status**: Accepted
+- **Rationale**: Direct user directive. Teams page displays one team at a time with `[◀️ Previous] [Team X of Y] [Next ▶️]` pagination controls. Mentors and members are formatted cleanly one name per line (`• <DisplayName>`) to ensure maximum readability and eliminate visual clutter. Artificial categories ("Web & Mobile", etc.) are strictly removed; teams are identified by their canonical name (e.g. `Team 1`). EventX description is tailored to its role as an internal hands-on Core Team simulation program for planning DevFest-scale events.
+- **Affected Files / Scope**: `src/ui/view_teams.js`, `src/events/evt_interactionCreate.js`, `src/data/json_events.js`, `data/events.json`, `src/ui/components/c_modals.js`, `test/t_events_teams.test.js`
+
 ---
 
 ## 📝 Sync Format for New Decisions
@@ -141,4 +171,5 @@ When recording new decisions from user instructions, append below using this for
 - **Rationale**: [Why this decision was made]
 - **Affected Files / Scope**: [List of components or files affected]
 ```
+
 
