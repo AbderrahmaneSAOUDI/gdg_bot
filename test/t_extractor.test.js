@@ -59,7 +59,7 @@ test('2. UI Button & Hub Action Rows', async (t) => {
   await t.test('createHubActionRows excludes extract button when not admin', () => {
     const rows = createHubActionRows(false);
     const allButtons = rows.flatMap((r) => r.components);
-    assert.strictEqual(allButtons.length, 3, 'Regular member sees only 3 buttons');
+    assert.strictEqual(allButtons.length, 5, 'Regular member sees the five public feature buttons');
     const extractBtn = allButtons.find((b) => b.data.custom_id === CUSTOM_IDS.HUB_EXTRACT_SERVER);
     assert.strictEqual(extractBtn, undefined);
   });
@@ -67,7 +67,7 @@ test('2. UI Button & Hub Action Rows', async (t) => {
   await t.test('createHubActionRows includes extract button when admin', () => {
     const rows = createHubActionRows(true);
     const allButtons = rows.flatMap((r) => r.components);
-    assert.strictEqual(allButtons.length, 4, 'Admin sees 4 buttons including extract server');
+    assert.strictEqual(allButtons.length, 9, 'Admin sees public features, management screens, and extract server');
     const extractBtn = allButtons.find((b) => b.data.custom_id === CUSTOM_IDS.HUB_EXTRACT_SERVER);
     assert.ok(extractBtn, 'Extract server button exists for admin');
   });

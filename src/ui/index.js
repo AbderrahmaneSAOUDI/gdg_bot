@@ -12,5 +12,11 @@ export * from './view_event_detail.js';
 export * from './view_teams.js';
 export * from './view_mentors.js';
 export * from './view_assign.js';
+export * from './components/c_club.js';
+export * from './view_club.js';
+export * from './view_members.js';
+export * from './view_departments.js';
+export * from './view_approvals.js';
+export * from './view_event_management.js';
 
 

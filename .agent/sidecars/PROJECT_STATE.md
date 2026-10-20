@@ -1,33 +1,17 @@
 # Project State
 
-## Current Overview
+- Current Phase: **Phase 2 — Club Management Core**, explicitly authorized 2026-10-19.
+- Local release implementation includes club membership, approvals, role-ID authorization,
+  directories, management views, setup/repair, and event/team reliability.
+- Runtime: Node 22/24, discord.js v14, dotenv, local JSON, single process.
+- Existing populated event data and local `.env` are preserved. No dependency additions.
+- Agent rules and local skills directories are absent; existing hooks and sidecars apply.
+- Verification on 2026-10-19: `npm test` and the post-change hook passed all 179 tests;
+  syntax checks passed for 77 JavaScript files and 66 safe application modules imported.
+  `git diff --check` passed. The npm script uses built-in discovery on Windows/POSIX.
+- Live Discord validation remains an operator task: [test-guild checklist](../../docs/TEST_GUILD.md).
+- No push, commit, release, command registration, or live bot startup was performed.
 
-- **Current Phase**: Phase 0 (Foundation & Universal Experience)
-- **Current Goal**: Establish project operating system and verify foundation readiness
-- **Last Updated**: 2026-09-18
-
----
-
-## 🚦 Status Summary
-
-### Completed
-- Project planning, requirements, and permissions mapping ([`docs/PERMISSIONS.md`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/docs/PERMISSIONS.md))
-- Centralized design tokens & Google brand colors ([`src/config/colors.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/colors.js))
-- Official GDG Ghardaia club structure, leadership hierarchy, and department colors ([`src/config/teams.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/config/teams.js))
-- Reusable UI component library (Buttons, Menus, Modals, Embeds, Navigation, Pagination) ([`src/ui/`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/src/ui/))
-- Automated unit test suite with 42 passing tests ([`test/ui-components.test.js`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/test/ui-components.test.js))
-- Agent Constitution in [`AGENTS.md`](file:///home/saoudi26/Documents/GitHub/GDG/gdg_bot/AGENTS.md)
-
-### In Progress
-- Implementation of the Agent Operating System (`.agent/rules/`, `.agent/sidecars/`, `.agent/skills/`, `.agent/hooks/`)
-
-### Next
-- User review of the Agent Operating System
-- Bot client initialization, gateway connection, and `/bot` slash command registration
-
-### Not Yet Approved (Out of Scope for Current Phase)
-- Member tracking database
-- Todoist / Task synchronization
-- Google Calendar sync
-- AI assistant features
-- Advanced moderation / HR workflows
+See [architecture](../../docs/ARCHITECTURE.md), [data/recovery](../../docs/DATA_MODEL.md),
+and [permissions](../../docs/PERMISSIONS.md). Meetings, tasks, attendance, points,
+external integrations, AI, HR systems, and cloud migration remain deferred.

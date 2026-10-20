@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -122,210 +123,170 @@ function getInitialSeedData() {
   ];
 }
 
-// In-memory cache synced with disk
-let cachedEvents = null;
+const DEFAULT_PATH = STORAGE_FILE;
+const copy = (value) => structuredClone(value);
+const now = () => new Date().toISOString();
 
-function ensureStorageDir() {
-  if (!fs.existsSync(STORAGE_DIR)) {
-    fs.mkdirSync(STORAGE_DIR, { recursive: true });
-  }
-}
-
-/**
- * Reads events from disk or initializes seed data.
- */
-export function getAllEvents() {
-  if (cachedEvents) return cachedEvents;
-
-  try {
-    ensureStorageDir();
-    if (fs.existsSync(STORAGE_FILE)) {
-      const data = fs.readFileSync(STORAGE_FILE, 'utf8');
-      cachedEvents = JSON.parse(data);
-    } else {
-      cachedEvents = getInitialSeedData();
-      saveEventsToDisk(cachedEvents);
+function validate(snapshot) {
+  if (!snapshot || snapshot.schemaVersion !== 2 || !Array.isArray(snapshot.events)) throw new Error('Invalid event storage schema. Original file preserved.');
+  const identities = new Set();
+  for (const event of snapshot.events) {
+    if (!event || typeof event.id !== 'string' || !event.id || typeof event.name !== 'string' || !event.name.trim() || !Array.isArray(event.teams) || !['ACTIVE', 'ARCHIVED'].includes(event.status)) throw new Error('Invalid event record. Original file preserved.');
+    if (event.guildId != null && (typeof event.guildId !== 'string' || !event.guildId)) throw new Error('Invalid event guild scope.');
+    const key = `${event.guildId ?? ''}:${event.id}`;
+    if (identities.has(key)) throw new Error('Duplicate event identity.');
+    identities.add(key);
+    const numbers = new Set();
+    const ids = new Set();
+    for (const team of event.teams) {
+      if (!team || typeof team.id !== 'string' || !team.id || !Number.isSafeInteger(team.number) || team.number < 1 || typeof team.name !== 'string' || !Array.isArray(team.members) || !Array.isArray(team.mentors) || [...team.members, ...team.mentors].some((id) => typeof id !== 'string' || !id)) throw new Error('Invalid team record. Original file preserved.');
+      if (numbers.has(team.number) || ids.has(team.id)) throw new Error('Duplicate team number or identity.');
+      if (team.guildId != null && team.guildId !== event.guildId) throw new Error('Team guild does not match its event.');
+      if (team.eventId != null && team.eventId !== event.id) throw new Error('Team event reference does not match.');
+      numbers.add(team.number); ids.add(team.id);
     }
-  } catch (error) {
-    console.error('[DATA] Failed to read events storage, using memory seed:', error);
-    cachedEvents = getInitialSeedData();
   }
-
-  return cachedEvents;
+  return snapshot;
 }
 
-/**
- * Persists events to disk.
- */
-function saveEventsToDisk(events) {
-  try {
-    ensureStorageDir();
-    fs.writeFileSync(STORAGE_FILE, JSON.stringify(events, null, 2), 'utf8');
-  } catch (error) {
-    console.error('[DATA] Failed to write events storage to disk:', error);
+/** Atomic validated transactions for the supported single-process runtime. No mutable cached records. */
+export function createEventsStore({ filePath = DEFAULT_PATH, initialEvents = [], fileSystem = fs } = {}) {
+  const resolvedPath = path.resolve(filePath);
+  let needsMigration = false;
+  function read() {
+    if (!fileSystem.existsSync(resolvedPath)) return validate({ schemaVersion: 2, events: copy(initialEvents) });
+    let parsed;
+    try { parsed = JSON.parse(fileSystem.readFileSync(resolvedPath, 'utf8')); }
+    catch (cause) { throw new Error('Cannot read event storage. Original file preserved; repair it before continuing.', { cause }); }
+    if (Array.isArray(parsed)) {
+      needsMigration = true;
+      parsed = { schemaVersion: 2, events: parsed.map((event) => ({ ...event, guildId: event.guildId ?? null })) };
+    }
+    return validate(parsed);
   }
-}
-
-/**
- * Retrieves a single event by ID.
- */
-export function getEventById(eventId) {
-  const events = getAllEvents();
-  return events.find((e) => e.id === eventId) || null;
-}
-
-/**
- * Creates a new event.
- */
-export function createEvent({ id, name, description, status = 'ACTIVE' }) {
-  const events = getAllEvents();
-  const eventId = id || `event_${Date.now()}`;
-
-  const newEvent = {
-    id: eventId,
-    name,
-    description: description || '',
-    status,
-    teams: [],
+  function write(snapshot) {
+    validate(snapshot);
+    fileSystem.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    if (needsMigration && fileSystem.existsSync(resolvedPath)) {
+      const backup = `${resolvedPath}.pre-v2.bak`;
+      if (!fileSystem.existsSync(backup)) fileSystem.copyFileSync(resolvedPath, backup, fileSystem.constants.COPYFILE_EXCL);
+    }
+    const temporary = `${resolvedPath}.${randomUUID()}.tmp`;
+    let descriptor;
+    try {
+      descriptor = fileSystem.openSync(temporary, 'wx');
+      fileSystem.writeFileSync(descriptor, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+      fileSystem.fsyncSync(descriptor); fileSystem.closeSync(descriptor); descriptor = undefined;
+      fileSystem.renameSync(temporary, resolvedPath);
+      needsMigration = false;
+    } catch (cause) {
+      if (descriptor !== undefined) fileSystem.closeSync(descriptor);
+      if (fileSystem.existsSync(temporary)) fileSystem.unlinkSync(temporary);
+      throw new Error('Cannot save event storage; previous snapshot preserved.', { cause });
+    }
+  }
+  function transaction(mutate) {
+    const draft = copy(read());
+    const result = mutate(draft);
+    if (result?.then) throw new Error('Event storage transactions must be synchronous.');
+    write(draft);
+    return copy(result);
+  }
+  function select(snapshot, id, guildId) {
+    return snapshot.events.find((event) => event.id === id && (guildId === undefined || event.guildId === guildId));
+  }
+  const store = {
+    filePath: resolvedPath,
+    snapshot: () => copy(read()),
+    transaction,
+    getAllEvents(guildId) { return copy(read().events.filter((event) => guildId === undefined || event.guildId === guildId)); },
+    getEventById(id, guildId) { return copy(select(read(), id, guildId) ?? null); },
+    createEvent({ id = randomUUID(), guildId = null, name, description = '', status = 'ACTIVE', ...extra }) {
+      return transaction((draft) => {
+        if (select(draft, id, guildId)) throw new Error('Event already exists.');
+        const event = { ...extra, id, guildId, name: String(name ?? '').trim(), description, status, teams: [], createdAt: now(), updatedAt: now() };
+        draft.events.push(event); return event;
+      });
+    },
+    updateEvent(id, updates, guildId) {
+      return transaction((draft) => {
+        const event = select(draft, id, guildId); if (!event) return null;
+        Object.assign(event, updates, { id: event.id, guildId: event.guildId, updatedAt: now() }); return event;
+      });
+    },
+    deleteEvent(id, guildId) {
+      return transaction((draft) => {
+        const event = select(draft, id, guildId); if (!event) return false;
+        draft.events.splice(draft.events.indexOf(event), 1); return true;
+      });
+    },
+    addTeam(eventId, values = {}, guildId) {
+      return transaction((draft) => {
+        const event = select(draft, eventId, guildId); if (!event) return null;
+        const number = values.number ?? Math.max(0, ...event.teams.map((team) => team.number), event.lastTeamNumber ?? 0) + 1;
+        if (!Number.isSafeInteger(number) || number < 1 || event.teams.some((team) => team.number === number)) throw new Error('Team number must be a unique positive integer.');
+        const team = { ...values, id: values.id ?? randomUUID(), guildId: event.guildId ?? null, eventId, number, name: values.name?.trim() || `Team ${String(number).padStart(2, '0')}`, memberRoleId: values.memberRoleId ?? null, mentorRoleId: values.mentorRoleId ?? null, textChannelId: values.textChannelId ?? null, voiceChannelId: values.voiceChannelId ?? null, members: [], mentors: [], provisioningStatus: values.provisioningStatus ?? 'READY', createdAt: now(), updatedAt: now() };
+        event.lastTeamNumber = Math.max(event.lastTeamNumber ?? 0, number);
+        event.teams.push(team); event.updatedAt = now(); return team;
+      });
+    },
+    updateTeam(eventId, teamId, updates, guildId) {
+      return transaction((draft) => {
+        const event = select(draft, eventId, guildId);
+        const team = event?.teams.find((item) => item.id === teamId); if (!team) return null;
+        Object.assign(team, updates, { id: team.id, eventId, guildId: event.guildId ?? null, updatedAt: now() }); return team;
+      });
+    },
+    deleteTeam(eventId, teamId, guildId) {
+      return transaction((draft) => {
+        const event = select(draft, eventId, guildId);
+        const index = event?.teams.findIndex((team) => team.id === teamId) ?? -1; if (index < 0) return null;
+        return event.teams.splice(index, 1)[0];
+      });
+    },
+    assignMembers(eventId, teamId, userIds, guildId) { return assign(eventId, teamId, userIds, guildId, 'members'); },
+    assignMentors(eventId, teamId, userIds, guildId) { return assign(eventId, teamId, userIds, guildId, 'mentors'); },
+    bindLegacyEvents(guildId) {
+      if (!guildId) throw new Error('Explicit guild binding is required.');
+      return transaction((draft) => {
+        let count = 0;
+        for (const event of draft.events.filter((item) => !item.guildId)) {
+          event.guildId = guildId; event.updatedAt = now();
+          for (const team of event.teams) { team.guildId = guildId; team.eventId = event.id; }
+          count += 1;
+        }
+        return count;
+      });
+    },
   };
-
-  events.push(newEvent);
-  saveEventsToDisk(events);
-  return newEvent;
-}
-
-/**
- * Updates an event's top-level properties.
- */
-export function updateEvent(eventId, updates) {
-  const events = getAllEvents();
-  const index = events.findIndex((e) => e.id === eventId);
-  if (index === -1) return null;
-
-  events[index] = { ...events[index], ...updates };
-  saveEventsToDisk(events);
-  return events[index];
-}
-
-/**
- * Deletes an event.
- */
-export function deleteEvent(eventId) {
-  let events = getAllEvents();
-  const initialLength = events.length;
-  events = events.filter((e) => e.id !== eventId);
-  if (events.length !== initialLength) {
-    cachedEvents = events;
-    saveEventsToDisk(events);
-    return true;
+  function assign(eventId, teamId, userIds = [], guildId, field) {
+    return transaction((draft) => {
+      const team = select(draft, eventId, guildId)?.teams.find((item) => item.id === teamId); if (!team) return null;
+      team[field] = [...new Set([...team[field], ...userIds])]; team.updatedAt = now(); return team;
+    });
   }
-  return false;
+  return store;
 }
 
-/**
- * Adds a team to an event.
- */
-export function addTeam(eventId, { name, number, memberRoleId, mentorRoleId }) {
-  const event = getEventById(eventId);
-  if (!event) return null;
-
-  const nextNumber = number || (event.teams.length > 0 ? Math.max(...event.teams.map((t) => t.number || 0)) + 1 : 1);
-  const formattedName = name || `Team ${String(nextNumber).padStart(2, '0')}`;
-  const teamId = `team_${String(nextNumber).padStart(2, '0')}_${Date.now()}`;
-
-  const newTeam = {
-    id: teamId,
-    number: nextNumber,
-    name: formattedName,
-    memberRoleId: memberRoleId || null,
-    mentorRoleId: mentorRoleId || null,
-    members: [],
-    mentors: [],
-  };
-
-  event.teams.push(newTeam);
-  saveEventsToDisk(cachedEvents);
-  return newTeam;
+export const eventsStore = createEventsStore();
+let activeStore = eventsStore;
+/** Explicit fixture injection; refuses the production events path. */
+export function setEventsStoreForTests(store) {
+  if (!store?.filePath || path.resolve(store.filePath) === DEFAULT_PATH) throw new Error('Tests require a separate event storage path.');
+  activeStore = store;
 }
-
-/**
- * Updates a team within an event.
- */
-export function updateTeam(eventId, teamId, updates) {
-  const event = getEventById(eventId);
-  if (!event) return null;
-
-  const team = event.teams.find((t) => t.id === teamId);
-  if (!team) return null;
-
-  Object.assign(team, updates);
-  saveEventsToDisk(cachedEvents);
-  return team;
-}
-
-/**
- * Deletes a team from an event.
- */
-export function deleteTeam(eventId, teamId) {
-  const event = getEventById(eventId);
-  if (!event) return null;
-
-  const initialLength = event.teams.length;
-  const deletedTeam = event.teams.find((t) => t.id === teamId);
-  event.teams = event.teams.filter((t) => t.id !== teamId);
-
-  if (event.teams.length !== initialLength) {
-    saveEventsToDisk(cachedEvents);
-    return deletedTeam;
-  }
-  return null;
-}
-
-/**
- * Assigns one or more members to a team.
- */
-export function assignMembers(eventId, teamId, userIds = []) {
-  const event = getEventById(eventId);
-  if (!event) return null;
-
-  const team = event.teams.find((t) => t.id === teamId);
-  if (!team) return null;
-
-  for (const uid of userIds) {
-    if (!team.members.includes(uid)) {
-      team.members.push(uid);
-    }
-  }
-
-  saveEventsToDisk(cachedEvents);
-  return team;
-}
-
-/**
- * Assigns one or more mentors to a team.
- */
-export function assignMentors(eventId, teamId, userIds = []) {
-  const event = getEventById(eventId);
-  if (!event) return null;
-
-  const team = event.teams.find((t) => t.id === teamId);
-  if (!team) return null;
-
-  for (const uid of userIds) {
-    if (!team.mentors.includes(uid)) {
-      team.mentors.push(uid);
-    }
-  }
-
-  saveEventsToDisk(cachedEvents);
-  return team;
-}
-
-/**
- * Resets storage to seed state (useful in automated tests).
- */
+export function getAllEvents(guildId) { return activeStore.getAllEvents(guildId); }
+export function getEventById(eventId, guildId) { return activeStore.getEventById(eventId, guildId); }
+export function createEvent(values) { return activeStore.createEvent(values); }
+export function updateEvent(id, updates, guildId) { return activeStore.updateEvent(id, updates, guildId); }
+export function deleteEvent(id, guildId) { return activeStore.deleteEvent(id, guildId); }
+export function addTeam(id, values, guildId) { return activeStore.addTeam(id, values, guildId); }
+export function updateTeam(id, teamId, updates, guildId) { return activeStore.updateTeam(id, teamId, updates, guildId); }
+export function deleteTeam(id, teamId, guildId) { return activeStore.deleteTeam(id, teamId, guildId); }
+export function assignMembers(id, teamId, users, guildId) { return activeStore.assignMembers(id, teamId, users, guildId); }
+export function assignMentors(id, teamId, users, guildId) { return activeStore.assignMentors(id, teamId, users, guildId); }
 export function resetEventsStore(seed = getInitialSeedData()) {
-  cachedEvents = JSON.parse(JSON.stringify(seed));
-  saveEventsToDisk(cachedEvents);
-  return cachedEvents;
+  if (activeStore === eventsStore) throw new Error('Reset is only allowed with an explicitly injected test store.');
+  activeStore.transaction((draft) => { draft.events = copy(seed); });
+  return activeStore.getAllEvents();
 }

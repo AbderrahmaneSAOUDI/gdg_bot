@@ -1,212 +1,139 @@
-# 🤖 GDG Ghardaia Discord Bot
+# GDG Ghardaia Discord Bot
 
-Official Discord Bot for the **Google Developer Groups (GDG) Ghardaia** community, engineered with [Node.js](https://nodejs.org/) (ES Modules) and [discord.js v14](https://discord.js.org/).
+Phase 2: Club Management Core. JavaScript ES modules, discord.js v14, dotenv,
+local JSON storage, and Node's built-in test runner. Use Node 22 or 24; development
+verification used Node 24. No build step or web server is required.
 
-> *"Commands are for bootstrapping. UI is for everything else."*
+`/bot` opens a private club hub. Its public entries are **Events**, **Members**,
+**Departments**, **Knowledge**, and **My Profile**. **Approval Center**, **Club
+Overview**, and **Check Setup** appear according to the clicking member's current
+capabilities. The authorized server extractor remains available to administrators.
 
----
+- The member directory contains registered club records, with search, department
+  and status filters, details, and pagination. It is not a complete Discord member sync.
+- The five departments come from [cfg_teams.js](src/config/cfg_teams.js). Profiles
+  distinguish stored membership from current Discord roles.
+  Co-Manager names use currently available Discord member data and are labeled as
+  known names; the bot does not claim a complete server-member synchronization.
+- Members choose a department, submit one pending request, review outcomes, and
+  cancel pending requests. Co-Managers review joins to their department; transfers
+  require club-wide management. Decisions retain resolver, time, and reason.
+- Managers register existing Discord members, transfer, archive/reactivate, and
+  confirm leadership appointments. Archive does not kick or ban anyone.
+- Events support edits and archive browsing. Competition teams have independent
+  membership, mentors, roster moves/removals, paginated rosters, safe deletion,
+  explicit private text/voice channels, and confirmed repair.
+- **My Teams** contains only the current member's memberships and mentorships in
+  this guild. Channel links appear only when the channel exists and is accessible.
+- **Check Setup** observes permissions, bindings, references, role drift, partial
+  operations, and CORE channel policy. Repairs are separate confirmed actions.
 
-## ✨ Key Features & Capabilities
+## Install and verify locally
 
-- **Single Entry Point (`/bot`)**: Clean slash command opening an ephemeral interactive dashboard.
-- **UI-First Philosophy**: Replace cumbersome slash command memorization with tactile buttons, select menus, and modals.
-- **Persistent Channel Dashboard Anchor**: Deploy a permanent interactive hub message in dedicated channels (e.g., `#team-hub`) so members never need to type slash commands.
-- **Privacy & Clutter-Free**: Personal interactions run in ephemeral private sessions without cluttering public discussion channels.
-- **Google Brand Palette**: Built using official Google Developer Groups color tokens (`Blue`, `Red`, `Yellow`, `Green`, `Dark Slate`).
-- **Tactile Multi-View Navigation**: Seamlessly navigate across Squads, Meetings, Activities, Knowledge Base, Logistics Requests, and Member Profiles with standard return breadcrumbs.
-- **Modern ES Modules (`"type": "module"`)**: High-performance native ESM running smoothly on modern Node.js runtimes.
-
----
-
-## 📚 Complete Project Documentation (`docs/`)
-
-Explore our comprehensive engineering and product specifications:
-
-| Document | Purpose |
-|---|---|
-| [🤖 AGENTS.md](AGENTS.md) | Guidelines, invariants, and coding standards for AI coding assistants and developers. |
-| [⚡ SHORTCUTS.MD](docs/SHORTCUTS.MD) | Developer file prefix cheat sheet, Single Responsibility Principle & naming standards. |
-| [🌐 VISION.md](docs/VISION.md) | Mission statement, community personas, and the UI-First Manifesto. |
-| [📋 REQUIREMENTS.md](docs/REQUIREMENTS.md) | Complete functional (FR) and non-functional (NFR) requirements specification. |
-| [🏗️ ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, component decomposition, and interaction lifecycles. |
-| [🗄️ DATA_MODEL.md](docs/DATA_MODEL.md) | Entity relationship diagram (ERD), collection schemas, and Firestore specifications. |
-| [🎨 DISCORD_UI.md](docs/DISCORD_UI.md) | Discord UI design system, Google brand color tokens, and screen blueprints. |
-| [🔐 PERMISSIONS.md](docs/PERMISSIONS.md) | Discord permissions matrix, OAuth2 scopes, and 5-tier role-based access control (RBAC). |
-| [🔄 WORKFLOWS.md](docs/WORKFLOWS.md) | Sequence diagrams for hub navigation, persistent deployment, and request lifecycles. |
-| [🗺️ ROADMAP.md](docs/ROADMAP.md) | Phased development milestones from core bootstrap to cloud and Google Calendar sync. |
-
----
-
-## 📁 Project Directory Layout
-
-```
-gdg_bot/
-├── .env                     # Local environment secrets (ignored by git)
-├── .env.example             # Documented environment variable template
-├── .gitignore               # Git ignored patterns
-├── AGENTS.md                # AI Agent guidelines & engineering standards
-├── LICENSE                  # MIT License
-├── package.json             # ES Module manifest, dependencies & scripts
-├── README.md                # Project overview & developer guide
-├── docs/                    # Architectural and product specifications
-│   ├── SHORTCUTS.MD         # Developer file prefix cheatsheet & SRP guidelines
-│   ├── VISION.md            # Mission, philosophy & community personas
-│   ├── REQUIREMENTS.md      # Functional & non-functional requirements
-│   ├── ARCHITECTURE.md      # System architecture & component flows
-│   ├── DATA_MODEL.md        # Firestore schemas & entity relationships
-│   ├── DISCORD_UI.md        # Design tokens, color palette & screen blueprints
-│   ├── PERMISSIONS.md       # Discord RBAC matrix & permissions
-│   ├── WORKFLOWS.md         # Detailed workflows & sequence diagrams
-│   └── ROADMAP.md           # Phased milestones & feature trajectory
-├── test/
-│   └── t_ui_components.test.js # Automated component and token tests
-└── src/
-    ├── index.js             # Bot entry point & dynamic component loaders
-    ├── deploy-commands.js   # REST script to deploy slash commands to Discord
-    ├── commands/            # Slash command definitions (cmd_*)
-    │   └── general/
-    │       └── cmd_bot.js   # /bot (Single entry point & hub launcher)
-    ├── events/              # Discord gateway event handlers (evt_*)
-    │   ├── evt_clientReady.js       # Ready handler, presence & startup greeting
-    │   └── evt_interactionCreate.js # Command & button interaction dispatcher
-    ├── config/              # Centralized design tokens & configuration (cfg_*)
-    │   ├── cfg_colors.js    # Google Brand and Department colors
-    │   ├── cfg_teams.js     # Team & role organizational hierarchy
-    │   ├── cfg_customIds.js # Custom ID builders and parsers
-    │   ├── cfg_emojis.js    # Standard emojis and icons
-    │   ├── cfg_labels.js    # Reusable button and UI labels
-    │   └── index.js         # Barrel re-export for config
-    ├── messages/            # Centralized text copy & response templates (msg_*)
-    │   ├── msg_common.js    # Common system messages & titles
-    │   ├── msg_dashboard.js # Hub dashboard descriptions & greetings
-    │   ├── msg_errors.js    # User-facing error copy
-    │   ├── msg_knowledge.js # Knowledge base messages
-    │   ├── msg_confirmations.js # Action confirmation dialog texts
-    │   └── index.js         # Barrel re-export for messages
-    └── ui/                  # UI view builders, components & navigation (c_*, view_*)
-        ├── view_hub.js      # Main Team Hub view
-        ├── components/      # Reusable UI widgets (c_*)
-        │   ├── c_buttons.js     # Standardized styled buttons
-        │   ├── c_selectMenus.js # Dropdown menus
-        │   ├── c_modals.js      # Pop-up modal forms & inputs
-        │   ├── c_pagination.js  # Pagination rows & slicing
-        │   ├── c_confirmation.js# Confirm/Cancel action dialogs
-        │   └── c_actionRows.js  # 5-button-per-row chunker
-        ├── embeds/          # Embed archetypes
-        │   └── c_embedBuilder.js# Google brand embed builders
-        ├── navigation/      # Navigation breadcrumbs & flow
-        │   └── c_navigation.js  # Back/Home/Close control rows
-        └── index.js         # Barrel re-export for UI system
+```powershell
+npm ci
+npm test
+git diff --check
 ```
 
----
+The test suite uses temporary stores and mocked Discord APIs. It needs no token,
+does not connect the bot, and does not reset production JSON. `node_modules/` is
+the installation directory; a folder named `node modules` is unrelated.
 
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- **Node.js**: v18.0.0 or higher (v20+ or v22 LTS recommended)
-- **npm**: v9+ or higher
-
-### 2. Installation
-
-Clone this repository and install dependencies:
+The repository hooks can be run from Git Bash:
 
 ```bash
-git clone https://github.com/AbderrahmaneSAOUDI/gdg_bot.git
-cd gdg_bot
-npm install
+bash .agent/hooks/pre-change
+bash .agent/hooks/post-change
 ```
 
----
+`post-change` runs the same `npm test` suite. The pre-commit hook also checks staged
+files for accidental environment/token additions. Running tests never deploys commands.
 
-### 3. Create a Discord Application & Bot
+## Configure a test guild
 
-1. Open the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Click **New Application** and name it (e.g. `GDG Ghardaia Bot`).
-3. Navigate to the **Bot** tab on the left:
-   - Click **Reset Token** to generate a new bot token and copy it.
-4. Navigate to **OAuth2** -> **URL Generator**:
-   - In **Scopes**, check:
-     - `bot`
-     - `applications.commands`
-   - In **Bot Permissions**, select permissions needed:
-     - `View Channels`
-     - `Send Messages`
-     - `Embed Links`
-     - `Read Message History`
-     - `Use External Emojis`
-   - Copy the generated URL and open it in your browser to invite the bot to your Discord server.
+Copy [.env.example](.env.example) to your local `.env` if needed, and populate the
+Discord credentials locally. Never paste token values into chat or commit `.env`.
+The existing ready handler can post a public greeting on login; startup is an
+explicit operator action.
 
----
+After you choose to start the bot, a Discord **Administrator** or trusted **Manage
+Guild** operator should open `/bot` → **Check Setup** → **Bind Roles**. Choose each
+canonical binding, select its actual Discord role, review, and confirm. Bindings
+are per guild in `data/club.json`; names are suggestions, never authorization.
 
-### 4. Configure Environment Variables
+| Binding | Canonical Discord role |
+| --- | --- |
+| Trusted club management | President, Vice President, SG, HR |
+| Trusted department Co-Managers | Relations, Logistics, Media, Design, Dev |
+| Department membership | Relations Department, Logistics Department, Media Department, Design Department, Dev Department |
+| CORE channel policy | The server's explicit CORE view-only role |
 
-Copy `.env.example` to `.env`:
+`Dev` and `Dev Department` must have different IDs. Department membership roles
+must use their canonical names and minimal guild permissions. A missing membership
+role can be created during an approved membership change when the bot can manage
+roles and there is no ambiguous existing canonical role. Existing unbound roles
+require explicit binding. Leadership roles are never implicitly created or granted
+by a profile field.
 
-```bash
-cp .env.example .env
+Place the bot's highest role above all roles it manages. Membership changes need
+**Manage Roles**; provisioning channels also needs **Manage Channels**. Hub messages
+need **View Channel**, **Send Messages**, and **Embed Links**. Native member selectors
+and individual REST member fetches avoid a full server member synchronization.
+
+The channel policy denies everyone visibility, grants collaboration to team roles,
+and gives CORE view/read access with posting, reacting, threads, and speaking denied.
+The bot has explicit access. Discord Administrators bypass overwrites; overlapping
+role allows can also defeat CORE posting restrictions. Diagnostics report known
+conflicts from available member information. See [permissions](docs/PERMISSIONS.md).
+
+## Existing data and migration
+
+Keep backups of `data/events.json` and `data/club.json` before operating the release.
+Do this while the bot is stopped by its operator; only one process may use a store.
+
+- Existing populated JSON is preserved. Missing files initialize on a successful
+  mutation. Corrupt or unsupported data fails clearly and is never replaced by an
+  empty store.
+- Event schema 2 preserves legacy array records and unrelated fields. The first
+  mutation creates `events.json.pre-v2.bak` before atomic replacement.
+- Legacy events without a guild remain hidden from normal guild queries. An
+  administrator must use **Check Setup** → **Review Legacy Events**, review the
+  selected guild, and confirm ownership. The action binds all currently unscoped
+  legacy events to that guild; mixed-guild legacy files need operator review first.
+- Club schema 1 stores members, requests, guild configuration, audit, and operation
+  journals together. The supported unversioned shape has those same collections;
+  migration is backed up before its first write. Other shapes fail validation.
+- Recovery checkpoints record prepared and repair-required operations. Membership
+  repair uses stored membership as its source of truth. Team repair uses stored
+  rosters and resources; pending deletion is retried through the deletion workflow.
+- Tests can inject `createClubStore(path)` and `createEventsStore({filePath})` into
+  services. They never need a disposable copy of real member data.
+
+Runtime JSON, temporary files, backups, exports, and credentials are ignored. The
+pre-existing tracked legacy `data/events.json` is left intact; do not stage runtime
+changes to that already tracked file. No dependency migration is required.
+
+## Operator commands
+
+Only run these when you intend the corresponding live action:
+
+```powershell
+npm run deploy  # Register /bot using the configured application/guild
+npm run dev     # Start the live bot with source watching
+# Or: npm start
 ```
 
-Populate `.env` with your credentials:
+`/bot deploy_channel:#club-hub` requires Administrator or Manage Guild and posts a
+persistent public entry point. Every click opens private content for the clicker;
+the public message is never converted into a personal or management screen.
 
-```env
-# Discord Bot Token
-DISCORD_TOKEN=your_bot_token_here
+## Documentation
 
-# Application (Client) ID
-CLIENT_ID=your_client_id_here
+- [Architecture](docs/ARCHITECTURE.md), [data and recovery](docs/DATA_MODEL.md),
+  [authorization](docs/PERMISSIONS.md), [manual test-guild checklist](docs/TEST_GUILD.md)
+- [File conventions](docs/SHORTCUTS.MD), [agent constitution](AGENTS.md),
+  [current phase](.agent/sidecars/CURRENT_PHASE.md), [decisions](.agent/sidecars/DECISIONS.md)
 
-# (Optional) Test Guild ID for instant command propagation during development
-GUILD_ID=your_guild_id_here
-
-# (Optional) Channel ID for startup greeting
-STARTUP_CHANNEL_ID=
-```
-
-> **Tip:** Setting `GUILD_ID` during development registers slash commands instantly to your test server. Global deployment (leaving `GUILD_ID` blank) can take up to 1 hour to propagate across Discord.
-
----
-
-### 5. Deploy Slash Commands
-
-Register the `/bot` command with Discord's REST API:
-
-```bash
-npm run deploy
-```
-
----
-
-### 6. Run the Bot
-
-**Development Mode (auto-reloads on file changes):**
-```bash
-npm run dev
-```
-
-**Production Mode:**
-```bash
-npm start
-```
-
----
-
-## 🛠️ Operational Commands
-
-### Launch Ephemeral Team Hub
-```
-/bot
-```
-Opens your private interactive session with full navigation access to all squads, meetings, activities, knowledge, requests, and your profile.
-
-### Deploy Persistent Channel Hub Anchor (Admins only)
-```
-/bot deploy_channel:#team-hub
-```
-Posts a permanent public message with interactive launch buttons into the specified channel.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
+Meetings, task coordination, attendance, points, Google Calendar, Todoist, AI
+assistants, external HR systems, and cloud databases remain a later roadmap.

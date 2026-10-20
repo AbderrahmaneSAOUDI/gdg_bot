@@ -160,6 +160,12 @@
 
 ---
 
+### D-016
+- **Decision**: Phase 2 Club Management Core is authorized by the user on 2026-10-19.
+- **Status**: Accepted
+- **Rationale**: The release request explicitly advances Phase 0/1 and supersedes D-011's temporary Knowledge/Profile hub restriction. Public entries are Events, Members, Departments, Knowledge, and My Profile; management entries depend on current capabilities.
+- **Affected Files / Scope**: Club storage, authorization, services, UI, event/team reliability, tests, documentation. Trusted management uses per-guild role IDs. Transfers require club-wide authority. Team roles have minimal guild permissions; collaboration belongs on channels (refines D-013). No cloud services or live deployment authorized.
+
 ## 📝 Sync Format for New Decisions
 
 When recording new decisions from user instructions, append below using this format:

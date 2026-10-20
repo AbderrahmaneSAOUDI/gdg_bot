@@ -1,208 +1,105 @@
-import { PermissionFlagsBits } from 'discord.js';
+﻿import { PermissionFlagsBits } from 'discord.js';
 import { GOOGLE_COLORS } from '../config/cfg_colors.js';
+import { PermissionsBitField } from 'discord.js';
+import { clubStore } from '../data/json_club.js';
+import { UNSAFE_ASSIGNMENT_PERMISSION_NAMES } from '../config/cfg_permissions.js';
 
-/**
- * Builds permission bits for standard Team Members.
- */
+function roleError(code,message) {const error=new Error(message);error.code=code;return error;}
+
 export function getMemberPermissions() {
-  return [
-    PermissionFlagsBits.ViewChannel,
-    PermissionFlagsBits.SendMessages,
-    PermissionFlagsBits.AddReactions,
-    PermissionFlagsBits.AttachFiles,
-    PermissionFlagsBits.ReadMessageHistory,
-    PermissionFlagsBits.Connect,
-    PermissionFlagsBits.Speak,
-  ];
+  return [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak];
 }
-
-/**
- * Builds permission bits for Team Mentors (Hoisted + elevated in-team guidance).
- */
 export function getMentorPermissions() {
-  return [
-    ...getMemberPermissions(),
-    PermissionFlagsBits.PrioritySpeaker,
-    PermissionFlagsBits.ManageMessages,
-  ];
+  return [...getMemberPermissions(), PermissionFlagsBits.PrioritySpeaker, PermissionFlagsBits.ManageMessages];
 }
+export const CORE_DENIED_PERMISSIONS = Object.freeze([PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.CreatePublicThreads, PermissionFlagsBits.CreatePrivateThreads, PermissionFlagsBits.SendMessagesInThreads, PermissionFlagsBits.Speak]);
 
-/**
- * Builds permission overwrites enforcing the @CORE View-Only Invariant.
- *
- * @param {object} params
- * @param {string} params.everyoneRoleId
- * @param {string} params.coreRoleId - Role ID for @CORE (Staff / Executive)
- * @param {string} params.memberRoleId - Role ID for Team Member
- * @param {string} params.mentorRoleId - Role ID for Team Mentor
- * @returns {Array<object>} Discord permission overwrites array
- */
-export function buildTeamChannelOverwrites({
-  everyoneRoleId,
-  coreRoleId,
-  memberRoleId,
-  mentorRoleId,
-}) {
+/** Discord aggregates role overwrites; administrators bypass them and other allows can conflict. */
+export function buildTeamChannelOverwrites({ everyoneRoleId, coreRoleId, coreRoleIds = [], memberRoleId, mentorRoleId, botMemberId }) {
   const overwrites = [];
-
-  // 1. @everyone: Completely hidden
-  if (everyoneRoleId) {
-    overwrites.push({
-      id: everyoneRoleId,
-      deny: [PermissionFlagsBits.ViewChannel],
-    });
+  if (everyoneRoleId) overwrites.push({ id: everyoneRoleId, deny: [PermissionFlagsBits.ViewChannel] });
+  for (const id of new Set([coreRoleId, ...coreRoleIds].filter(Boolean))) {
+    if ([everyoneRoleId, memberRoleId, mentorRoleId].includes(id)) throw new Error('CORE and team roles must have distinct IDs.');
+    overwrites.push({ id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory], deny: [...CORE_DENIED_PERMISSIONS] });
   }
-
-  // 2. @CORE View-Only Invariant: Can view & read history, but CANNOT talk or react
-  if (coreRoleId) {
-    overwrites.push({
-      id: coreRoleId,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.ReadMessageHistory,
-      ],
-      deny: [
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.AddReactions,
-        PermissionFlagsBits.CreatePublicThreads,
-        PermissionFlagsBits.CreatePrivateThreads,
-        PermissionFlagsBits.SendMessagesInThreads,
-        PermissionFlagsBits.Speak,
-      ],
-    });
-  }
-
-  // 3. Team Member: Full collaboration access
-  if (memberRoleId) {
-    overwrites.push({
-      id: memberRoleId,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.AddReactions,
-        PermissionFlagsBits.AttachFiles,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.Connect,
-        PermissionFlagsBits.Speak,
-      ],
-    });
-  }
-
-  // 4. Team Mentor: Full collaboration + moderation within room
-  if (mentorRoleId) {
-    overwrites.push({
-      id: mentorRoleId,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.AddReactions,
-        PermissionFlagsBits.AttachFiles,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.Connect,
-        PermissionFlagsBits.Speak,
-        PermissionFlagsBits.PrioritySpeaker,
-        PermissionFlagsBits.ManageMessages,
-      ],
-    });
-  }
-
+  if (memberRoleId) overwrites.push({ id: memberRoleId, allow: getMemberPermissions() });
+  if (mentorRoleId) overwrites.push({ id: mentorRoleId, allow: getMentorPermissions() });
+  if (botMemberId) overwrites.push({ id: botMemberId, type: 1, allow: [...getMentorPermissions(), PermissionFlagsBits.ManageChannels] });
   return overwrites;
 }
 
-/**
- * Provisions Discord Roles for a new Team:
- * 1. `${eventName} - Team ${teamNumber} - Member` (Google Blue, non-hoisted)
- * 2. `${eventName} - Team ${teamNumber} - Mentor` (Google Yellow, hoisted)
- *
- * @param {import('discord.js').Guild} guild
- * @param {string} eventName
- * @param {number|string} teamNumber
- * @returns {Promise<{ memberRole: import('discord.js').Role, mentorRole: import('discord.js').Role }>}
- */
-export async function createTeamRoles(guild, eventName, teamNumber) {
-  if (!guild?.roles) {
-    throw new Error('Valid Discord guild with role manager is required to provision roles');
+export async function preflightTeamPermissions(guild, { channels = false, roleIds = [] } = {}) {
+  if (!guild?.id) throw roleError('GUILD_REQUIRED','A Discord guild is required.');
+  await guild.roles?.fetch?.();
+  const bot = guild.members?.fetchMe ? await guild.members.fetchMe({ force: true }) : guild.members?.me;
+  if (!bot?.permissions?.has(PermissionFlagsBits.ManageRoles)) throw roleError('BOT_MANAGE_ROLES','The bot needs Manage Roles.');
+  if (channels && !bot.permissions.has(PermissionFlagsBits.ManageChannels)) throw roleError('BOT_MANAGE_CHANNELS','The bot needs Manage Channels.');
+  for (const id of new Set(roleIds.filter(Boolean))) {
+    const role = await guild.roles.fetch(id, { force: true });
+    if (!role || role.managed || role.id === guild.id || role.editable === false || (bot.roles?.highest && role.position >= bot.roles.highest.position)) throw roleError('ROLE_HIERARCHY','A team role is missing, managed, or above the bot in the role hierarchy.');
   }
-
-  const paddedNum = String(teamNumber).padStart(2, '0');
-  const memberRoleName = `${eventName} - Team ${paddedNum} - Member`;
-  const mentorRoleName = `${eventName} - Team ${paddedNum} - Mentor`;
-
-  // 1. Create Member Role
-  const memberRole = await guild.roles.create({
-    name: memberRoleName,
-    color: GOOGLE_COLORS.BLUE,
-    hoist: false,
-    mentionable: true,
-    reason: `Automated team role provisioning for ${eventName} Team ${paddedNum}`,
-  });
-
-  // 2. Create Mentor Role
-  const mentorRole = await guild.roles.create({
-    name: mentorRoleName,
-    color: GOOGLE_COLORS.YELLOW,
-    hoist: true,
-    mentionable: true,
-    reason: `Automated mentor role provisioning for ${eventName} Team ${paddedNum}`,
-  });
-
-  return { memberRole, mentorRole };
+  return bot;
 }
 
-/**
- * Assigns a role to a guild member.
- */
+/** Team assignment must never confer server administration or a configured club role. */
+export async function assertSafeTeamAssignmentRoles(guild, { memberRoleId, mentorRoleId, coreRoleId, assignmentRoleIds = [] }) {
+  if (memberRoleId && memberRoleId === mentorRoleId) throw roleError('UNSAFE_TEAM_ROLE','Team member and mentor roles must have distinct IDs before assignment.');
+  const config = clubStore.snapshot().guilds.find((item) => item.guildId === guild.id) ?? {};
+  const protectedIds = new Set([...Object.values(config.trustedRoleIds ?? {}), ...Object.values(config.departmentRoleIds ?? {}), config.coreRoleId, ...(config.coreRoleIds ?? []), coreRoleId].filter(Boolean));
+  const elevated = UNSAFE_ASSIGNMENT_PERMISSION_NAMES.map(key=>PermissionFlagsBits[key]).filter(Boolean);
+  for (const id of new Set(assignmentRoleIds)) {
+    if (!id || protectedIds.has(id)) throw roleError('UNSAFE_TEAM_ROLE','A team assignment role conflicts with a protected club role. Review and repair its binding first.');
+    const role = await guild.roles.fetch(id, { force: true });
+    if (!role) throw roleError('ROLE_MISSING','Team assignment role is missing. Review and repair the team first.');
+    const permissions = typeof role.permissions?.has === 'function' ? role.permissions : new PermissionsBitField(role.permissions?.bitfield ?? role.permissions ?? []);
+    if (elevated.some((permission) => permissions.has(permission))) throw roleError('UNSAFE_TEAM_ROLE','A team role has unsafe server-wide permissions. Review and confirm team repair before assigning it.');
+  }
+}
+
+export function teamRoleNames(eventName, teamNumber) {
+  const prefix = `${eventName} - Team ${String(teamNumber).padStart(2, '0')}`;
+  if (prefix.length > 91) throw new Error('Event name is too long for Discord team roles.');
+  return { member: `${prefix} - Member`, mentor: `${prefix} - Mentor` };
+}
+
+/** Creates only minimal guild roles. Collaboration permissions belong on channels. */
+export async function createTeamRoles(guild, eventName, teamNumber, { onCreated = async () => {} } = {}) {
+  await preflightTeamPermissions(guild);
+  const names = teamRoleNames(eventName, teamNumber);
+  const created = [];
+  try {
+    const memberRole = await guild.roles.create({ name: names.member, color: GOOGLE_COLORS.BLUE, permissions: [], hoist: false, mentionable: false, reason: 'Explicit team provisioning' });
+    created.push(memberRole); await onCreated('memberRoleId', memberRole.id);
+    const mentorRole = await guild.roles.create({ name: names.mentor, color: GOOGLE_COLORS.YELLOW, permissions: [], hoist: true, mentionable: false, reason: 'Explicit team provisioning' });
+    created.push(mentorRole); await onCreated('mentorRoleId', mentorRole.id);
+    return { memberRole, mentorRole };
+  } catch (error) {
+    const remainingRoleIds = [];
+    for (const role of created.reverse()) {
+      try { await guild.roles.delete(role.id, 'Rollback incomplete team provisioning'); }
+      catch { remainingRoleIds.push(role.id); }
+    }
+    error.createdRoleIds = created.map((role) => role.id);
+    error.remainingRoleIds = remainingRoleIds;
+    throw error;
+  }
+}
+
 export async function assignRoleToMember(guild, userId, roleId) {
   if (!guild || !userId || !roleId) return false;
-  try {
-    const member = await guild.members.fetch(userId);
-    if (!member) return false;
-    await member.roles.add(roleId);
-    return true;
-  } catch (error) {
-    console.error(`[ROLE] Failed to assign role ${roleId} to user ${userId}:`, error);
-    return false;
-  }
+  try { const member = await guild.members.fetch({ user: userId, force: true }); if (!member) return false; await member.roles.add(roleId); return true; }
+  catch { return false; }
 }
-
-/**
- * Removes a role from a guild member.
- */
 export async function removeRoleFromMember(guild, userId, roleId) {
   if (!guild || !userId || !roleId) return false;
-  try {
-    const member = await guild.members.fetch(userId);
-    if (!member) return false;
-    await member.roles.remove(roleId);
-    return true;
-  } catch (error) {
-    console.error(`[ROLE] Failed to remove role ${roleId} from user ${userId}:`, error);
-    return false;
-  }
+  try { const member = await guild.members.fetch({ user: userId, force: true }); if (!member) return false; await member.roles.remove(roleId); return true; }
+  catch { return false; }
 }
-
-/**
- * Deletes team roles when a team is removed.
- */
 export async function deleteTeamRoles(guild, memberRoleId, mentorRoleId) {
-  if (!guild?.roles) return;
-  const promises = [];
-
-  if (memberRoleId) {
-    promises.push(
-      guild.roles.delete(memberRoleId, 'Team deleted from event').catch((err) => {
-        console.warn(`[ROLE] Could not delete member role ${memberRoleId}:`, err.message);
-      })
-    );
+  const failures = [];
+  for (const id of new Set([memberRoleId, mentorRoleId].filter(Boolean))) {
+    try { await guild.roles.delete(id, 'Confirmed team deletion'); }
+    catch (error) { if (error.code !== 10011) failures.push({ type: 'role', id }); }
   }
-
-  if (mentorRoleId) {
-    promises.push(
-      guild.roles.delete(mentorRoleId, 'Team deleted from event').catch((err) => {
-        console.warn(`[ROLE] Could not delete mentor role ${mentorRoleId}:`, err.message);
-      })
-    );
-  }
-
-  await Promise.allSettled(promises);
+  return { deleted: failures.length === 0, failures };
 }

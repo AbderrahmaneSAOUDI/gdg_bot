@@ -540,15 +540,17 @@ test('11. Hub Compatibility', async (t) => {
       guild: { iconURL: () => 'https://example.com/icon.png' },
     };
 
-    // Main Hub Payload: exactly 1 action row containing [Events], [Knowledge], and [My Profile]
+    // The public feature row contains the five released club areas.
     const hub = getHubPayload(mockUser, mockMember);
     assert.equal(hub.embeds.length, 1);
     assert.equal(hub.components.length, 1);
     const hubRow = hub.components[0].toJSON();
-    assert.equal(hubRow.components.length, 3);
+    assert.equal(hubRow.components.length, 5);
     assert.equal(hubRow.components[0].custom_id, CUSTOM_IDS.HUB_EVENTS);
-    assert.equal(hubRow.components[1].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
-    assert.equal(hubRow.components[2].custom_id, CUSTOM_IDS.HUB_PROFILE);
+    assert.equal(hubRow.components[1].custom_id, 'bot:club:members:0:ALL:ALL:0');
+    assert.equal(hubRow.components[2].custom_id, 'bot:club:departments');
+    assert.equal(hubRow.components[3].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(hubRow.components[4].custom_id, CUSTOM_IDS.HUB_PROFILE);
 
     // Knowledge Payload: valid embed and back navigation row
     const knowledge = getKnowledgePayload(mockUser, mockMember);
@@ -557,23 +559,25 @@ test('11. Hub Compatibility', async (t) => {
     const knowledgeRow = knowledge.components[0].toJSON();
     assert.equal(knowledgeRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
 
-    // Profile Payload: valid embed and back navigation row
+    // Compatibility profile entry exposes the club self-service controls.
     const profile = getProfilePayload(mockUser, mockMember);
     assert.equal(profile.embeds.length, 1);
-    assert.equal(profile.components.length, 1);
-    const profileRow = profile.components[0].toJSON();
-    assert.equal(profileRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
+    assert.equal(profile.components.length, 2);
+    const profileButtons = profile.components.flatMap((row) => row.toJSON().components);
+    assert.ok(profileButtons.some((button) => button.custom_id === CUSTOM_IDS.HUB_MAIN));
+    assert.ok(profileButtons.some((button) => button.custom_id === 'bot:club:my_requests:0'));
 
-    // Persistent Hub Payload: exactly 1 action row with [Open Team Hub], [Events], [Knowledge], [My Profile]
+    // The persistent public hub starts private feature navigation for every clicker.
     const persistent = getPersistentHubPayload();
     assert.equal(persistent.embeds.length, 1);
     assert.equal(persistent.components.length, 1);
     const persistentRow = persistent.components[0].toJSON();
-    assert.equal(persistentRow.components.length, 4);
-    assert.equal(persistentRow.components[0].custom_id, CUSTOM_IDS.HUB_MAIN);
-    assert.equal(persistentRow.components[1].custom_id, CUSTOM_IDS.HUB_EVENTS);
-    assert.equal(persistentRow.components[2].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
-    assert.equal(persistentRow.components[3].custom_id, CUSTOM_IDS.HUB_PROFILE);
+    assert.equal(persistentRow.components.length, 5);
+    assert.equal(persistentRow.components[0].custom_id, CUSTOM_IDS.HUB_EVENTS);
+    assert.equal(persistentRow.components[1].custom_id, 'bot:club:members:0:ALL:ALL:0');
+    assert.equal(persistentRow.components[2].custom_id, 'bot:club:departments');
+    assert.equal(persistentRow.components[3].custom_id, CUSTOM_IDS.HUB_KNOWLEDGE);
+    assert.equal(persistentRow.components[4].custom_id, CUSTOM_IDS.HUB_PROFILE);
   });
 });
 

@@ -55,6 +55,54 @@ Each department has its official color. **All department members inherit the col
 
 ## 2. Role-Based Access Control (RBAC) Matrix
 
+The Phase 2 capability policy below replaces the broad historical tiers for live
+management actions. Canonical names and colors above remain unchanged.
+
+| Actor | Live club capability |
+| --- | --- |
+| General member | Registered directories, own profile/teams/requests, submit/cancel own pending request |
+| Mentor | General member access and assigned team rosters; no automatic management authority |
+| Bound Department Co-Manager | Own department management information and scoped join approvals |
+| Bound President / Vice President / SG / HR | Club-wide member/department/approval and event/team administration |
+| Discord Administrator or trusted Manage Guild | Bootstrap setup, role bindings, repair, persistent deployment, full management |
+
+Authorization uses exact configured role IDs per guild in `data/club.json`, never
+display names, name suffixes, imported profile fields, or Manage Roles alone. The
+`Dev` Co-Manager and `Dev Department` membership roles are distinct. Names only help
+an administrator select a binding in Check Setup. Department membership roles must
+have the canonical name and no elevated guild permissions.
+
+Transfers between departments always require club-wide authority. Department
+Co-Managers cannot appoint leadership, self-promote, manage unrelated departments,
+or administer events by default. No event delegation is inferred. Every service
+mutation checks the current Discord actor and resource guild, including controls
+submitted from stale messages, selectors, and modals. DM management is rejected.
+
+Member transfer/archive, leadership appointments, team roster removals/moves,
+deletion, role bindings, and repairs require an impact review and confirmation.
+Archive revokes only configured department membership access, preserving leadership,
+mentor, competition, and unrelated roles; it does not kick or ban anyone.
+
+Team roles carry minimal server permissions. On private team channels, everyone
+is hidden, team roles receive collaboration permissions, and CORE receives view/read
+but explicit denials for send, reactions, thread creation/posting, and voice speaking.
+The bot receives explicit member access. These channel rules do not grant club
+management capabilities.
+
+Discord Administrators bypass channel overwrites. An allow from another applicable
+role can also override a role-level deny, so CORE view-only cannot be guaranteed for
+members holding overlapping team roles or administrative permissions. Check Setup
+reports known conflicts from available cached members; it is not a full-server sync.
+See [Discord's permission rules](https://docs.discord.com/developers/topics/permissions).
+
+The bot needs Manage Roles and a highest role above affected manageable roles;
+managed integration roles cannot be reassigned. Channel provisioning/repair needs
+Manage Channels. Persistent hub deployment checks channel view/send/embed access.
+Membership synchronization grants new access first and compensates failures before
+returning an unresolved/repairable outcome.
+
+### Historical planning tiers
+
 | Permission Level | Roles | Typical Privileges |
 |---|---|---|
 | **Tier 1: Administrator** | President, Vice President | Server administration, persistent dashboard deployment (`/bot deploy_channel`), bot configuration |

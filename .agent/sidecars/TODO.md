@@ -1,13 +1,14 @@
-# Project Backlog & Action Items
+# Phase 2 release follow-up
 
-## Phase 0: Immediate Tasks
+- [x] Implement role-aware private hub, member/department directories, profile/My Teams.
+- [x] Implement requests, scoped approvals, terminal history, and member administration.
+- [x] Implement role-ID bindings, compensated role sync, journals, diagnostics, confirmed repairs.
+- [x] Preserve and extend event/team edits, archive, roster, confirmations, and explicit channels.
+- [x] Isolate tests from runtime stores and correct Windows test discovery.
+- [x] Document configuration, migration, storage limitations, and manual guild verification.
+- [ ] Operator: review and bind trusted role IDs and explicitly assign legacy event ownership.
+- [ ] Operator: run [manual test-guild checklist](../../docs/TEST_GUILD.md) after intentionally starting the bot.
+- [ ] Operator: decide deployment/command registration separately. No live deployment authorized.
 
-- [x] Create centralized design tokens (`src/config/colors.js`, `src/config/teams.js`, `src/config/emojis.js`, `src/config/labels.js`)
-- [x] Build reusable Discord UI components library (`src/ui/`)
-- [x] Map GDG Ghardaia club structure & RBAC permissions (`docs/PERMISSIONS.md`)
-- [x] Implement comprehensive unit test suite (`test/ui-components.test.js` - 42 tests)
-- [x] Setup Agent Operating System (`AGENTS.md`, `.agent/rules/`, `.agent/sidecars/`, `.agent/skills/`, `.agent/hooks/`)
-- [ ] Initialize Discord client gateway connection in `src/index.js`
-- [ ] Register `/bot` slash command and implement the command handler dispatcher
-- [ ] Implement persistent channel hub deployment (`/bot deploy_channel`)
-- [ ] Verify interactive button navigation in a live Discord test guild
+Future roadmap only: meetings, tasks, attendance, points, Google Calendar, Todoist,
+AI, external HR systems, cloud persistence, advanced moderation.

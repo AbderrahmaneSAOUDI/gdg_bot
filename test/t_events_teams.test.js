@@ -1,4 +1,11 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createEventsStore, setEventsStoreForTests } from '../src/data/json_events.js';
+const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gdg-events-'));
+setEventsStoreForTests(createEventsStore({ filePath: path.join(fixtureDir, 'events.json') }));
+after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
 import assert from 'node:assert/strict';
 import { PermissionFlagsBits } from 'discord.js';
 

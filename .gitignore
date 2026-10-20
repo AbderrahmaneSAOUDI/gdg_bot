@@ -39,6 +39,11 @@ build/Release
 
 # Dependency directories
 node_modules/
+data/*.json
+data/*.bak*
+data/*.tmp*
+data/backups/
+server_data/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)

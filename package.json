@@ -8,7 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch --watch-path=src --watch-path=.env src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "test": "node --test 'test/**/*.test.js'"
+    "test": "node --test"
   },
   "keywords": [
     "gdg",

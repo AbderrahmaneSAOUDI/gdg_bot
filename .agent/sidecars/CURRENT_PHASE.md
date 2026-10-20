@@ -1,29 +1,26 @@
-# Current Phase: Phase 1 — Event & Team Management
+# Current Phase: Phase 2 — Club Management Core
 
-## Objective
-Implement event management, competition teams, mentor allocations, native Discord role automation, and channel permission enforcement with @CORE view-only isolation.
+Authorized by the user's release request on 2026-10-19. Earlier Phase 0/1 limits
+are superseded only for this explicit release scope; prior identity and engineering
+decisions remain binding.
 
----
+## Approved scope
 
-## 🟢 Allowed in Current Phase
-- Reusable UI components (Buttons, Select Menus, Modals, Action Rows, Embeds)
-- Design tokens & color palettes (Google Brand Colors & Official Team Colors)
-- Event management views and data store (`json_events.js`)
-- Team CRUD workflows and naming conventions (Teams, not groups)
-- Automated Discord role provisioning (`EventX - Team <N> - Member`, `EventX - Team <N> - Mentor`)
-- Automated channel permission overwrites (@CORE View-Only Invariant: view/read allowed, send/react denied)
-- Native UserSelectMenu and Role assignment handlers
-- Unit and integration tests for events, teams, and role permissions
+- Role-aware `/bot`, private navigation and persistent public entry points.
+- Registered member and canonical department directories, profile and My Teams.
+- Membership/transfer requests, scoped approvals, history, authorized administration.
+- Reliable department and competition role synchronization, event/team edits and archive.
+- Confirmed roster changes/deletion, explicit private channels and resource repair.
+- Durable validated local JSON, authorization, pagination, regression tests and documentation.
+- Read-only setup diagnostics with separate authorized previews and confirmed repairs.
 
----
+## Deferred roadmap
 
-## 🔴 Prohibited in Current Phase (Requires Explicit Approval)
-- Task management & Todoist API integration
-- External cloud database migration (Firestore remains deferred until local JSON schema stabilizes)
-- AI assistants, NLP, or LLM-driven bot interactions
-- HR management workflows & meeting scheduling modules
-- Activity tracking, attendance logging, or automated points system
-- Advanced auto-moderation filters
+Meetings, tasks, attendance, points, Google Calendar, Todoist, AI assistants,
+external HR systems, advanced moderation, and cloud database migration.
 
-> [!WARNING]
-> Before modifying or implementing features, check this file. If a requested feature appears in the prohibited list, STOP and request explicit user confirmation to transition phases.
+## Operating boundary
+
+Work locally. Preserve populated runtime JSON, `.env`, and unrelated processes.
+Do not register commands, start a live bot, publish, push, or release without a
+separate user instruction. Automated checks use isolated stores and mock Discord.

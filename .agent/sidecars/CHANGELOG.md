@@ -24,3 +24,11 @@ All notable changes and architectural increments to the GDG Ghardaia Discord Bot
   - Added `#000001` true black support for Discord bot roles.
 - **Testing**:
   - Added 43 unit tests covering tokens, configs, UI builders, action rows, and hub payloads.
+# 2026-10-19 — Phase 2 Club Management Core
+
+User authorized the phase transition and expanded public hub. Added scoped trusted
+authorization, versioned club transactions and approval history, directories,
+member administration, diagnostics/confirmed repair, durable event/team resource
+coordination, private channel actions, isolated tests, and operating documentation.
+Corrected npm test discovery for Windows. Existing runtime data is preserved;
+no live bot startup, command deployment, push, or release was performed.
