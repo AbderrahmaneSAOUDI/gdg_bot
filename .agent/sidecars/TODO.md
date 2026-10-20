@@ -6,6 +6,9 @@
 - [x] Preserve and extend event/team edits, archive, roster, confirmations, and explicit channels.
 - [x] Isolate tests from runtime stores and correct Windows test discovery.
 - [x] Document configuration, migration, storage limitations, and manual guild verification.
+- [x] Review releases 0.12–0.14 and repair legacy buttons, acknowledgment timing,
+  stale confirmations, incremental binding repair, member/team recovery, and
+  truthful extractor results with regression coverage.
 - [ ] Operator: review and bind trusted role IDs and explicitly assign legacy event ownership.
 - [ ] Operator: run [manual test-guild checklist](../../docs/TEST_GUILD.md) after intentionally starting the bot.
 - [ ] Operator: decide deployment/command registration separately. No live deployment authorized.

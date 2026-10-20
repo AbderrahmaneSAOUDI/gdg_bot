@@ -41,14 +41,20 @@ export async function preflightTeamPermissions(guild, { channels = false, roleId
   return bot;
 }
 
-/** Team assignment must never confer server administration or a configured club role. */
-export async function assertSafeTeamAssignmentRoles(guild, { memberRoleId, mentorRoleId, coreRoleId, assignmentRoleIds = [] }) {
-  if (memberRoleId && memberRoleId === mentorRoleId) throw roleError('UNSAFE_TEAM_ROLE','Team member and mentor roles must have distinct IDs before assignment.');
+/** Stored team references must never authorize edits or deletion of configured club roles. */
+export function assertTeamRoleBindings(guild, { memberRoleId, mentorRoleId, coreRoleId, roleIds = [memberRoleId, mentorRoleId], requireDistinct = true }) {
+  if (requireDistinct && memberRoleId && memberRoleId === mentorRoleId) throw roleError('UNSAFE_TEAM_ROLE','Team member and mentor roles must have distinct IDs before assignment.');
   const config = clubStore.snapshot().guilds.find((item) => item.guildId === guild.id) ?? {};
   const protectedIds = new Set([...Object.values(config.trustedRoleIds ?? {}), ...Object.values(config.departmentRoleIds ?? {}), config.coreRoleId, ...(config.coreRoleIds ?? []), coreRoleId].filter(Boolean));
+  if (roleIds.some((id) => id && protectedIds.has(id))) throw roleError('UNSAFE_TEAM_ROLE','A team assignment role conflicts with a protected club role. Review and repair its binding first.');
+}
+
+/** Team assignment must never confer server administration or a configured club role. */
+export async function assertSafeTeamAssignmentRoles(guild, { memberRoleId, mentorRoleId, coreRoleId, assignmentRoleIds = [] }) {
+  assertTeamRoleBindings(guild, { memberRoleId, mentorRoleId, coreRoleId, roleIds: assignmentRoleIds });
   const elevated = UNSAFE_ASSIGNMENT_PERMISSION_NAMES.map(key=>PermissionFlagsBits[key]).filter(Boolean);
   for (const id of new Set(assignmentRoleIds)) {
-    if (!id || protectedIds.has(id)) throw roleError('UNSAFE_TEAM_ROLE','A team assignment role conflicts with a protected club role. Review and repair its binding first.');
+    if (!id) throw roleError('ROLE_MISSING','Team assignment role is missing. Review and repair the team first.');
     const role = await guild.roles.fetch(id, { force: true });
     if (!role) throw roleError('ROLE_MISSING','Team assignment role is missing. Review and repair the team first.');
     const permissions = typeof role.permissions?.has === 'function' ? role.permissions : new PermissionsBitField(role.permissions?.bitfield ?? role.permissions ?? []);

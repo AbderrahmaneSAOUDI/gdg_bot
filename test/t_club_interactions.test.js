@@ -43,6 +43,95 @@ function fixture(t) {
 const serialized=(payload)=>JSON.stringify(payload,(key,value)=>value?.toJSON?.()||value);
 const buttons=(payload)=>payload.components.flatMap(row=>row.toJSON().components);
 
+test('rosters resolve cold-cache member names after acknowledgment and only fetch the visible page',async(t)=>{
+  const f=fixture(t),event=f.eventStore.createEvent({guildId:f.guild.id,name:'Cold Cache Event'});
+  const team=f.eventStore.addTeam(event.id,{name:'Team 01'},f.guild.id),remote=new Map();
+  for(let n=0;n<10;n++) {
+    const member=f.member(`1000000000000001${String(n).padStart(2,'0')}`);
+    member.displayName=`Remote Person ${n}`;remote.set(member.id,member);f.guild.members.cache.delete(member.id);
+  }
+  f.eventStore.updateTeam(event.id,team.id,{members:[...remote.keys()]},f.guild.id);
+  const original=f.guild.members.fetch,reads=[];let current;
+  f.guild.members.fetch=async(query)=>{
+    assert.equal(current.deferred,true);
+    if(remote.has(query.user)){reads.push(query.user);return remote.get(query.user);}
+    return original(query);
+  };
+  current=f.interaction(`bot:em:roster:${event.id}:${team.id}:0`).i;await f.dispatch(current);
+  assert.match(serialized(current.payload),/Remote Person 0/);
+  assert.match(serialized(current.payload),/Remote Person 7/);
+  assert.equal(serialized(current.payload).includes('Remote Person 8'),false);assert.equal(reads.length,8);
+  reads.length=0;current=f.interaction(`bot:em:roster:${event.id}:${team.id}:1`).i;await f.dispatch(current);
+  assert.match(serialized(current.payload),/Remote Person 9/);assert.equal(reads.length,2);
+});
+
+test('Approval Center and request details resolve a requester missing from the guild cache',async(t)=>{
+  const f=fixture(t),request=await f.services.submitRequest({guild:f.guild,actor:f.user},{departmentKey:'DEV'});
+  f.user.displayName='Cold Cache Requester';f.guild.members.cache.delete(f.user.id);
+  const original=f.guild.members.fetch;
+  f.guild.members.fetch=async(query)=>query.user===f.user.id?f.user:original(query);
+  const list=f.interaction('bot:club:approvals:0:PENDING:ALL',{actor:f.admin});await f.dispatch(list.i);
+  assert.match(serialized(list.i.payload),/Cold Cache Requester/);
+  const detail=f.interaction(`bot:club:request_detail:${request.id}:review`,{actor:f.admin});await f.dispatch(detail.i);
+  assert.match(serialized(detail.i.payload),/Cold Cache Requester/);
+});
+
+test('role binding controls repair one binding while an unrelated stored role is missing',async(t)=>{
+  const f=fixture(t),ctx={guild:f.guild,actor:f.admin},oldDev='100000000000000005',oldMedia='100000000000000030',newMedia='100000000000000031';
+  for(const id of [oldMedia,newMedia])f.guild.roles.cache.set(id,{id,name:'Media Department',editable:true,position:1});
+  await f.services.bindRoles(ctx,{departmentRoleIds:{DEV:oldDev,MEDIA:oldMedia},confirmed:true});
+  f.guild.roles.cache.delete(oldDev);
+  const pick=f.interaction('bot:club:role_bind_pick:departmentRoleIds:MEDIA',{actor:f.admin,kind:'select',values:[newMedia]});await f.dispatch(pick.i);
+  const confirmId=buttons(pick.i.payload).find(button=>button.custom_id?.includes('role_bind_confirm')).custom_id;
+  await f.dispatch(f.interaction(confirmId,{actor:f.admin}).i);
+  assert.deepEqual(f.services.getConfig(ctx).departmentRoleIds,{DEV:oldDev,MEDIA:newMedia});
+});
+
+test('confirmed multi-member moves chain the authoritative roster version and stop after a failed move',async(t)=>{
+  const f=fixture(t),first=f.user.id,second='100000000000000050';
+  const event={id:'event',name:'Move Event',status:'ACTIVE',teams:[
+    {id:'source',name:'Team 01',members:[first,second],mentors:[]},
+    {id:'destination',name:'Team 02',members:[],mentors:[]},
+  ]};
+  const sessions=createSessionStore(),previews=createConfirmationStore(),calls=[];
+  let shouldFail=false;
+  const teamServices={moveMemberWithRoles:async(ctx)=>{
+    calls.push(ctx);assert.equal(ctx.expectedRosterVersion,JSON.stringify(event.teams));
+    if(shouldFail)throw new Error('Discord unavailable');
+    event.teams[0].members=event.teams[0].members.filter(id=>id!==ctx.userId);event.teams[1].members.push(ctx.userId);
+    return {rosterVersion:JSON.stringify(event.teams)};
+  }};
+  const run=async(action,params,values=[])=>{
+    const {i}=f.interaction('',{actor:f.admin,values});
+    await handleEventInteraction(i,{action,params},{club:f.services,sessions,previews,eventServices:{getEvent:()=>event},teamServices});return i;
+  };
+  const confirmBatch=async()=>{
+    const manage=await run('manage',['event','destination']);
+    const token=buttons(manage.payload).find(button=>button.custom_id?.includes(':pick:')).custom_id.split(':')[3];
+    const review=await run('assign',[token,'members'],[first,second]);
+    const confirmation=buttons(review.payload).find(button=>button.custom_id?.includes(':confirm:')).custom_id.split(':').at(-1);
+    return run('confirm',[confirmation]);
+  };
+  await confirmBatch();assert.equal(calls.length,2);assert.notEqual(calls[0].expectedRosterVersion,calls[1].expectedRosterVersion);
+  event.teams[0].members=[first,second];event.teams[1].members=[];calls.length=0;shouldFail=true;
+  const failed=await confirmBatch();assert.equal(calls.length,1);assert.match(serialized(failed.payload),/2 failed/);
+});
+
+test('confirmed roster removal passes the exact reviewed version into its mutation',async(t)=>{
+  const f=fixture(t),event={id:'event',name:'Remove Event',status:'ACTIVE',teams:[{id:'team',name:'Team 01',members:[f.user.id],mentors:[]}]};
+  const sessions=createSessionStore(),previews=createConfirmationStore();let removed;
+  const teamServices={removeRosterWithRoles:async(ctx)=>{removed=ctx;return{successCount:1,failedCount:0};}};
+  const run=async(action,params,values=[])=>{
+    const {i}=f.interaction('',{actor:f.admin,values});
+    await handleEventInteraction(i,{action,params},{club:f.services,sessions,previews,eventServices:{getEvent:()=>event},teamServices});return i;
+  };
+  const manage=await run('manage',['event','team']);
+  const token=buttons(manage.payload).find(button=>button.custom_id?.includes(':pick:')).custom_id.split(':')[3];
+  const review=await run('assign',[token,'removeMembers'],[f.user.id]);
+  const confirmation=buttons(review.payload).find(button=>button.custom_id?.includes(':confirm:')).custom_id.split(':').at(-1);
+  await run('confirm',[confirmation]);assert.equal(removed.expectedRosterVersion,JSON.stringify(event.teams));assert.equal(removed.confirmed,true);
+});
+
 test('a public persistent hub click creates a private profile session and evaluates the clicker',async(t)=>{
   const f=fixture(t),{i,calls}=f.interaction('bot:hub:profile',{publicMessage:true});
   await f.dispatch(i);

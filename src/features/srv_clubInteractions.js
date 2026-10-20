@@ -13,6 +13,8 @@ import { INTERACTION_MESSAGES as M } from '../messages/msg_interactions.js';
 import { eventId } from '../config/cfg_eventManagement.js';
 import { CORE_TEAM, getTeam } from '../config/cfg_teams.js';
 import { formatUserName } from '../utils/f_formatters.js';
+import { resolveMemberNames } from './srv_memberNames.js';
+import { clubPage } from '../ui/components/c_club.js';
 
 function deny() { const error=new Error('Forbidden');error.code='FORBIDDEN';throw error; }
 function requireCap(caps,key) { if(!caps[key])deny(); }
@@ -49,7 +51,10 @@ export async function handleClubInteraction(interaction, parsed, {services=clubS
   const requireSetup=()=>requireCap(caps,'setupManage');
   const currentMember=(id)=>{const record=services.getMember(ctx,id);if(!record){const err=new Error('Missing record');err.code='NOT_FOUND';throw err;}return record;};
   const roleBindings=()=>services.getConfig(ctx).departmentRoleIds;
-  const namedRequests=(options)=>services.listRequests(ctx,options).map(request=>({...request,requesterName:display(ctx,request.userId)}));
+  const namedRequests=async(requests,page=0)=>{
+    const names=await resolveMemberNames(ctx.guild,clubPage(requests,page).items.map(request=>request.userId));
+    return requests.map(request=>({...request,requesterName:names[request.userId]||display(ctx,request.userId)}));
+  };
   const requestScope=(request)=>{
     if(request.type==='TRANSFER')return caps.clubManage;
     const current=services.getMember(ctx,request.userId);
@@ -88,17 +93,19 @@ export async function handleClubInteraction(interaction, parsed, {services=clubS
     navigation(navigationToken,'members');
     return members.getClubMemberDetailPayload({member:currentMember(userId),discordRoles:rolesFor(await ctx.guild.members.fetch({user:userId,force:true}).catch(()=>null)),teams:await getPersonalTeams(ctx,userId),teamPage,capabilities:caps,navigationToken});
   };
-  const requestList=({own=false,page=0,status='PENDING',departmentKey='ALL'}={})=>{
-    if(own)return approvals.getClubMyRequestsPayload({requests:namedRequests({own:true}),page});
+  const requestList=async({own=false,page=0,status='PENDING',departmentKey='ALL'}={})=>{
+    if(own)return approvals.getClubMyRequestsPayload({requests:await namedRequests(services.listRequests(ctx,{own:true}),page),page});
     requireCap(caps,'approvalReview');
-    return approvals.getClubApprovalCenterPayload({requests:namedRequests({status}).filter(request=>departmentKey==='ALL'||request.departmentKey===departmentKey),page,status,departmentKey});
+    const requests=services.listRequests(ctx,{status}).filter(request=>departmentKey==='ALL'||request.departmentKey===departmentKey);
+    return approvals.getClubApprovalCenterPayload({requests:await namedRequests(requests,page),page,status,departmentKey});
   };
-  const requestDetail=(id,own,navigationToken)=>{
+  const requestDetail=async(id,own,navigationToken)=>{
     navigation(navigationToken,'requests',own);
     const request=services.getRequest(ctx,id);
     if(own&&request.userId!==ctx.actor.id)deny();
     const canResolve=!own&&requestScope(request);
-    return approvals.getClubRequestDetailPayload({request,requesterName:display(ctx,request.userId),resolverName:request.resolvedBy?display(ctx,request.resolvedBy):undefined,own,canResolve,navigationToken});
+    const names=await resolveMemberNames(ctx.guild,[request.userId,...(request.resolvedBy?[request.resolvedBy]:[])]);
+    return approvals.getClubRequestDetailPayload({request,requesterName:names[request.userId],resolverName:names[request.resolvedBy],own,canResolve,navigationToken});
   };
   // Modal openings must be acknowledged with showModal immediately.
   if(action==='request_reject') {
@@ -172,20 +179,20 @@ export async function handleClubInteraction(interaction, parsed, {services=clubS
     }
     case 'request_department': payload=departments.getClubDepartmentRequestPayload({departmentKey:a==='NONE'?undefined:a,currentDepartmentKey:services.getMember(ctx)?.departmentKey});break;
     case 'request_choose': payload=departments.getClubDepartmentRequestPayload({departmentKey:value,currentDepartmentKey:services.getMember(ctx)?.departmentKey});break;
-    case 'request_submit': await services.submitRequest(ctx,{departmentKey:value||a});payload=approvals.getClubMyRequestsPayload({requests:namedRequests({own:true})});break;
-    case 'my_requests': payload=requestList({own:true,page:a});break;
+    case 'request_submit': await services.submitRequest(ctx,{departmentKey:value||a});payload=await requestList({own:true});break;
+    case 'my_requests': payload=await requestList({own:true,page:a});break;
     case 'request_open': {
       const own=a==='own',token=sessions.put(ctx,{kind:'requests',own,page:b||0,status:c||(own?'ALL':'PENDING'),departmentKey:d||'ALL'});
-      payload=requestDetail(value,own,token);break;
+      payload=await requestDetail(value,own,token);break;
     }
-    case 'requests_return': payload=requestList(navigation(a,'requests'));break;
-    case 'request_detail': payload=requestDetail(a,b==='own',c);break;
-    case 'request_cancel': navigation(b,'requests',true);await services.cancelRequest(ctx,a);payload=requestDetail(a,true,b);break;
-    case 'request_approve': navigation(b,'requests',false);await services.resolveRequest(ctx,a,{decision:'APPROVED'});payload=requestDetail(a,false,b);break;
-    case 'reject_submit': navigation(b,'requests',false);await services.resolveRequest(ctx,a,{decision:'REJECTED',reason:interaction.fields.getTextInputValue('reason')});payload=requestDetail(a,false,b);break;
+    case 'requests_return': payload=await requestList(navigation(a,'requests'));break;
+    case 'request_detail': payload=await requestDetail(a,b==='own',c);break;
+    case 'request_cancel': navigation(b,'requests',true);await services.cancelRequest(ctx,a);payload=await requestDetail(a,true,b);break;
+    case 'request_approve': navigation(b,'requests',false);await services.resolveRequest(ctx,a,{decision:'APPROVED'});payload=await requestDetail(a,false,b);break;
+    case 'reject_submit': navigation(b,'requests',false);await services.resolveRequest(ctx,a,{decision:'REJECTED',reason:interaction.fields.getTextInputValue('reason')});payload=await requestDetail(a,false,b);break;
     case 'approvals': case 'approval_filter_status': case 'approval_filter_dept': {
       requireCap(caps,'approvalReview');const page=action==='approvals'?a:0,status=action==='approval_filter_status'?value:action==='approvals'?(b||'PENDING'):(a||'PENDING'),dept=action==='approval_filter_dept'?value:action==='approvals'?(c||'ALL'):(a||'ALL');
-      payload=requestList({page,status,departmentKey:dept});break;
+      payload=await requestList({page,status,departmentKey:dept});break;
     }
     case 'overview': {
       requireCap(caps,'approvalReview');const events=listEvents({...ctx,includeArchived:true});
@@ -213,7 +220,7 @@ export async function handleClubInteraction(interaction, parsed, {services=clubS
       requireSetup();bindingTarget(a,b);const config=services.getConfig(ctx),prior=a==='coreRoleId'?config.coreRoleId:config[a]?.[b];
       previews.verify(ctx,'binding',`${a}:${b}:${c}`,{prior:prior||null});
       if(!['trustedRoleIds','departmentRoleIds','coreRoleId'].includes(a))deny();
-      await services.bindRoles(ctx,{...(a==='coreRoleId'?{coreRoleId:c}:{[a]:{...config[a],[b]:c}}),confirmed:true});
+      await services.bindRoles(ctx,{...(a==='coreRoleId'?{coreRoleId:c}:{[a]:{[b]:c}}),confirmed:true});
       payload=club.getClubRoleBindingsPayload({config:services.getConfig(ctx)});break;
     }
     default: {const error=new Error('Expired screen');error.code='SESSION_EXPIRED';throw error;}

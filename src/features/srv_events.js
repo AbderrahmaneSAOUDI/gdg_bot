@@ -1,6 +1,6 @@
 ﻿import { eventsStore } from '../data/json_events.js';
 import { assertGuildContext, requireCapability } from './srv_authorization.js';
-import { teamRoleNames, preflightTeamPermissions } from './srv_roles.js';
+import { teamRoleNames, preflightTeamPermissions, assertTeamRoleBindings } from './srv_roles.js';
 
 const locks = new Map();
 async function authorizeMutation(ctx, capability = 'events.manage') {
@@ -54,6 +54,7 @@ export async function editEvent(ctx) {
     const changed = [];
     try {
       if (name !== event.name) {
+        for (const team of event.teams) assertTeamRoleBindings(ctx.guild, { ...team, coreRoleId: event.coreRoleId });
         await preflightTeamPermissions(ctx.guild, { roleIds: event.teams.flatMap((team) => [team.memberRoleId, team.mentorRoleId]), channels: event.teams.some((team) => team.textChannelId || team.voiceChannelId || team.categoryId || Object.values(team.channels ?? {}).length) });
         for (const team of event.teams) {
           const names = teamRoleNames(name, team.number);

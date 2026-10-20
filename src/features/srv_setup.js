@@ -23,11 +23,16 @@ export function createSetupServices({ store, eventStore, authorizedContext, memb
         for (const key of Object.keys(nextDepartments)) if (!departmentKeys.has(key)) throw new ClubError('INVALID_DEPARTMENT');
         const ids = [...Object.values(nextTrusted), ...Object.values(nextDepartments)];
         if (ids.some((id) => typeof id !== 'string' || !id) || new Set(ids).size !== ids.length) throw new ClubError('AMBIGUOUS_ROLE_BINDING');
-        for (const id of [...ids, ...(coreRoleId ? [coreRoleId] : [])]) {
+        const nextCoreIds = new Set([coreRoleId === undefined ? config.coreRoleId : coreRoleId, ...(config.coreRoleIds || [])].filter(Boolean));
+        if (Object.values(nextDepartments).some((id) => nextCoreIds.has(id))) throw new ClubError('AMBIGUOUS_ROLE_BINDING');
+        // Validate the submitted bindings. Retained broken bindings stay visible in
+        // diagnostics and must not prevent an administrator from fixing another one.
+        const submittedIds = [...Object.values(trustedRoleIds), ...Object.values(departmentRoleIds), ...(coreRoleId ? [coreRoleId] : [])];
+        for (const id of submittedIds) {
           const role = await ctx.guild.roles.fetch(id, { force: true }).catch(() => null);
           if (!role || role.id === ctx.guild.id || role.managed) throw new ClubError('INVALID_ROLE');
         }
-        for (const [key, id] of Object.entries(nextDepartments)) {
+        for (const [key, id] of Object.entries(departmentRoleIds)) {
           const role = await ctx.guild.roles.fetch(id, { force: true });
           const definition = getAllTeams().find((team) => team.key === key);
           if (role.name !== definition.name || UNSAFE_ASSIGNMENT_PERMISSION_NAMES.some(key=>role.permissions?.has?.(PermissionFlagsBits[key]))) throw new ClubError('UNSAFE_MEMBERSHIP_ROLE');
@@ -42,13 +47,18 @@ export function createSetupServices({ store, eventStore, authorizedContext, memb
     },
     async checkSetup(ctx) {
       assertGuildContext(ctx);
+      let roles;
+      let roleDirectoryUnavailable = false;
+      try { roles = await ctx.guild.roles.fetch(); } catch { roleDirectoryUnavailable = true; }
+      await ctx.guild.members.fetchMe?.({ force: true });
+      const actor = await ctx.guild.members.fetch({ user: ctx.actor.id, force: true }).catch(() => null);
+      ctx = { ...ctx, actor };
       const data = store.snapshot();
       authorizedContext(ctx, data, 'setup.manage');
       const config = configFor(data, ctx.guild.id);
-      const issues = [];
+      const issues = roleDirectoryUnavailable ? [{ code: 'ROLE_DIRECTORY_UNAVAILABLE' }] : [];
       const candidates = { trustedRoleIds: {}, departmentRoleIds: {} };
-      let roles;
-      try { roles = await ctx.guild.roles.fetch(); } catch { issues.push({ code: 'ROLE_DIRECTORY_UNAVAILABLE' }); }
+      const coreRoleIds = new Set([config.coreRoleId, ...(config.coreRoleIds || [])].filter(Boolean));
       roles ||= ctx.guild.roles.cache;
       const roleValues = [...(roles?.values() || [])];
       for (const permission of ['ManageRoles', 'ManageChannels', 'ViewChannel', 'SendMessages', 'EmbedLinks']) {
@@ -57,17 +67,20 @@ export function createSetupServices({ store, eventStore, authorizedContext, memb
       for (const [key, definition] of Object.entries(CORE_TEAM)) {
         const matches = roleValues.filter((role) => role.name === definition.name && !role.managed && role.id !== ctx.guild.id);
         if (matches.length === 1) candidates.trustedRoleIds[key] = matches[0].id;
-        if (matches.length > 1) issues.push({ code: 'DUPLICATE_ROLE', roleKey: key });
         const id = config.trustedRoleIds[key];
+        const role = roleValues.find((item) => item.id === id);
+        if (matches.length > 1 && !role) issues.push({ code: 'DUPLICATE_ROLE', roleKey: key });
         if (!id) issues.push({ code: 'TRUSTED_ROLE_UNBOUND', roleKey: key });
-        else if (!roleValues.some((role) => role.id === id)) issues.push({ code: 'ROLE_MISSING', roleKey: key, roleId: id });
+        else if (!role) issues.push({ code: 'ROLE_MISSING', roleKey: key, roleId: id });
+        else if (role.managed || role.id === ctx.guild.id) issues.push({ code: 'ROLE_HIERARCHY', roleKey: key, roleId: id });
       }
       for (const team of getAllTeams()) {
         const matches = roleValues.filter((role) => role.name === team.name && !role.managed && role.id !== ctx.guild.id);
         if (matches.length === 1) candidates.departmentRoleIds[team.key] = matches[0].id;
-        if (matches.length > 1) issues.push({ code: 'DUPLICATE_ROLE', roleKey: `${team.key}_MEMBER` });
         const id = config.departmentRoleIds[team.key];
         const role = roleValues.find((item) => item.id === id);
+        if (id && coreRoleIds.has(id)) issues.push({ code: 'CORE_MEMBERSHIP_ROLE_COLLISION', departmentKey: team.key, roleId: id });
+        if (matches.length > 1 && !role) issues.push({ code: 'DUPLICATE_ROLE', roleKey: `${team.key}_MEMBER` });
         if (!id) issues.push({ code: 'DEPARTMENT_ROLE_UNBOUND', departmentKey: team.key });
         else if (!role) issues.push({ code: 'ROLE_MISSING', roleId: id, departmentKey: team.key });
         else {

@@ -32,3 +32,16 @@ member administration, diagnostics/confirmed repair, durable event/team resource
 coordination, private channel actions, isolated tests, and operating documentation.
 Corrected npm test discovery for Windows. Existing runtime data is preserved;
 no live bot startup, command deployment, push, or release was performed.
+
+# 2026-10-20 — Phase 2 reliability and button follow-up
+
+Reviewed releases 0.12–0.14 after the user reported unresponsive buttons. Restored
+legacy team pagination and safe Add/Assign/Delete entry points, moved ordinary
+interaction acknowledgment ahead of capability reads, and kept stale submissions
+non-mutating with recovery navigation. Added page-scoped member-name resolution,
+in-lock roster preview checks, confirmed departed-member archive, incremental role
+binding correction, protected CORE guards, complete legacy channel repair, and
+monotonic team numbering. Startup no longer requests privileged Gateway content
+access. Exports now refresh directories and report failed/partial histories with
+durable status files. Regression coverage uses isolated stores and mocked Discord.
+No live startup, command registration, populated runtime-data edit, or push.

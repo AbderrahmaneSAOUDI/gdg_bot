@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { PermissionFlagsBits } from 'discord.js';
+import { PermissionFlagsBits, RESTJSONErrorCodes } from 'discord.js';
 import { clubStore } from '../data/json_club.js';
 import { eventsStore } from '../data/json_events.js';
 import { CORE_TEAM, getAllTeams, getTeam } from '../config/cfg_teams.js';
@@ -57,51 +57,62 @@ export function createClubServices({ store = clubStore, eventStore = eventsStore
         if (!['ACTIVE', 'ARCHIVED'].includes(status)) throw new ClubError('INVALID_STATUS');
         const team = departmentKey === null ? null : getTeam(departmentKey);
         if (departmentKey !== null && !team) throw new ClubError('INVALID_DEPARTMENT');
-        let target;
-        try { target = await ctx.guild.members.fetch({ user: userId, force: true }); } catch { throw new ClubError('MEMBER_LEFT'); }
-        if (!target || target.guild?.id !== ctx.guild.id || target.user?.bot) throw new ClubError('MEMBER_LEFT');
         const before = structuredClone(memberFor(data, ctx.guild.id, userId) || null);
-        const config = configFor(data, ctx.guild.id);
-        preflight(ctx.guild);
-        // Inspect all canonical membership roles; only these roles are ever revoked.
-        const boundRoles = [];
-        for (const [key, id] of Object.entries(config.departmentRoleIds)) {
-          const role = await fetchRole(ctx.guild, id);
-          if (!role) throw new ClubError('ROLE_MISSING');
-          const definition = getTeam(key);
-          if (!definition || role.name !== definition.name || UNSAFE_ASSIGNMENT_PERMISSION_NAMES.some(key=>role.permissions?.has?.(PermissionFlagsBits[key]))) throw new ClubError('UNSAFE_MEMBERSHIP_ROLE');
-          if (target.roles.cache.has(role.id) || key === team?.key) preflight(ctx.guild, role);
-          boundRoles.push({ key, role });
+        let target;
+        try { target = await ctx.guild.members.fetch({ user: userId, force: true }); }
+        catch (error) {
+          // A departed member has no guild roles to revoke. Other fetch failures must
+          // still stop the archive, because the member may retain department access.
+          if (status !== 'ARCHIVED' || !before || error.code !== RESTJSONErrorCodes.UnknownMember) throw new ClubError('MEMBER_LEFT');
         }
-        let nextRole = status === 'ACTIVE' && team ? boundRoles.find(({ key }) => key === team.key)?.role : null;
-        if (!confirmed && boundRoles.some(({ role }) => target.roles.cache.has(role.id) && role.id !== nextRole?.id)) throw new ClubError('CONFIRM_REQUIRED');
-        // Existing unbound names are candidates for explicit setup binding, never implicit trust.
-        if (status === 'ACTIVE' && team && !nextRole) {
-          await ctx.guild.roles.fetch();
-          if ([...ctx.guild.roles.cache.values()].some((role) => role.name === team.name)) throw new ClubError('ROLE_BINDING_REQUIRED');
-        }
-        await journal(userId, { departmentKey: team?.key || null, status, requestId });
-        if (status === 'ACTIVE' && team && !nextRole) {
-          nextRole = await ctx.guild.roles.create({ name: team.name, color: resolveColor(team.color), permissions: [], mentionable: false, reason: 'Club membership role provisioning' });
-          operation.createdRoleIds.push(nextRole.id);
-          compensations.push(() => ctx.guild.roles.delete(nextRole.id, 'Compensating failed club membership change'));
-          storageTx.checkpoint();
-          preflight(ctx.guild, nextRole);
-          config.departmentRoleIds[team.key] = nextRole.id;
-          if (!data.guilds.some((item) => item.guildId === ctx.guild.id)) data.guilds.push(config);
-        }
-        if (nextRole && !target.roles.cache.has(nextRole.id)) {
-          await target.roles.add(nextRole.id, 'Approved club membership');
-          compensations.push(() => target.roles.remove(nextRole.id, 'Compensating failed club membership change'));
-        }
-        for (const { role } of boundRoles) {
-          if (role.id !== nextRole?.id && target.roles.cache.has(role.id)) {
-            await target.roles.remove(role.id, 'Club primary department changed');
-            compensations.push(() => target.roles.add(role.id, 'Restoring prior club membership'));
+        if (target ? target.guild?.id !== ctx.guild.id || target.user?.bot : status !== 'ARCHIVED' || !before) throw new ClubError('MEMBER_LEFT');
+        if (target) {
+          const config = configFor(data, ctx.guild.id);
+          preflight(ctx.guild);
+          // Inspect all canonical membership roles; only these roles are ever revoked.
+          const boundRoles = [];
+          const coreRoleIds = new Set([config.coreRoleId, ...(config.coreRoleIds || [])].filter(Boolean));
+          for (const [key, id] of Object.entries(config.departmentRoleIds)) {
+            if (coreRoleIds.has(id)) throw new ClubError('UNSAFE_MEMBERSHIP_ROLE');
+            const role = await fetchRole(ctx.guild, id);
+            if (!role) throw new ClubError('ROLE_MISSING');
+            const definition = getTeam(key);
+            if (!definition || role.name !== definition.name || UNSAFE_ASSIGNMENT_PERMISSION_NAMES.some(key=>role.permissions?.has?.(PermissionFlagsBits[key]))) throw new ClubError('UNSAFE_MEMBERSHIP_ROLE');
+            if (target.roles.cache.has(role.id) || key === team?.key) preflight(ctx.guild, role);
+            boundRoles.push({ key, role });
           }
+          let nextRole = status === 'ACTIVE' && team ? boundRoles.find(({ key }) => key === team.key)?.role : null;
+          if (!confirmed && boundRoles.some(({ role }) => target.roles.cache.has(role.id) && role.id !== nextRole?.id)) throw new ClubError('CONFIRM_REQUIRED');
+          // Existing unbound names are candidates for explicit setup binding, never implicit trust.
+          if (status === 'ACTIVE' && team && !nextRole) {
+            await ctx.guild.roles.fetch();
+            if ([...ctx.guild.roles.cache.values()].some((role) => role.name === team.name)) throw new ClubError('ROLE_BINDING_REQUIRED');
+          }
+          await journal(userId, { departmentKey: team?.key || null, status, requestId });
+          if (status === 'ACTIVE' && team && !nextRole) {
+            nextRole = await ctx.guild.roles.create({ name: team.name, color: resolveColor(team.color), permissions: [], mentionable: false, reason: 'Club membership role provisioning' });
+            operation.createdRoleIds.push(nextRole.id);
+            compensations.push(() => ctx.guild.roles.delete(nextRole.id, 'Compensating failed club membership change'));
+            storageTx.checkpoint();
+            preflight(ctx.guild, nextRole);
+            config.departmentRoleIds[team.key] = nextRole.id;
+            if (!data.guilds.some((item) => item.guildId === ctx.guild.id)) data.guilds.push(config);
+          }
+          if (nextRole && !target.roles.cache.has(nextRole.id)) {
+            await target.roles.add(nextRole.id, 'Approved club membership');
+            compensations.push(() => target.roles.remove(nextRole.id, 'Compensating failed club membership change'));
+          }
+          for (const { role } of boundRoles) {
+            if (role.id !== nextRole?.id && target.roles.cache.has(role.id)) {
+              await target.roles.remove(role.id, 'Club primary department changed');
+              compensations.push(() => target.roles.add(role.id, 'Restoring prior club membership'));
+            }
+          }
+        } else {
+          await journal(userId, { departmentKey: team?.key || null, status, requestId });
         }
         const timestamp = now();
-        const updated = { ...(before || {}), guildId: ctx.guild.id, userId, displayName: target.displayName || target.user?.username || userId, departmentKey: team?.key || null, status, createdAt: before?.createdAt || timestamp, updatedAt: timestamp };
+        const updated = { ...(before || {}), guildId: ctx.guild.id, userId, displayName: target?.displayName || target?.user?.username || before?.displayName || userId, departmentKey: team?.key || null, status, createdAt: before?.createdAt || timestamp, updatedAt: timestamp };
         if (before) Object.assign(memberFor(data, ctx.guild.id, userId), updated); else data.members.push(updated);
         operation.status = 'COMPLETED';
         operation.updatedAt = timestamp;
@@ -174,6 +185,7 @@ export function createClubServices({ store = clubStore, eventStore = eventsStore
         preflight(ctx.guild, role);
         const target = await ctx.guild.members.fetch({ user: userId, force: true }).catch(() => null);
         if (!target || target.guild?.id !== ctx.guild.id) throw new ClubError('MEMBER_LEFT');
+        if (target.user?.bot) throw new ClubError('INVALID_MEMBER');
         const hadRole = target.roles.cache.has(role.id);
         const operation = { id: randomUUID(), guildId: ctx.guild.id, userId, actorId: actor.id, action: 'LEADERSHIP_APPOINT', requested: { roleKey, roleId: role.id }, status: 'PREPARED', createdAt: now() };
         data.operations.push(operation);

@@ -234,7 +234,10 @@ export function createEventsStore({ filePath = DEFAULT_PATH, initialEvents = [],
       return transaction((draft) => {
         const event = select(draft, eventId, guildId);
         const team = event?.teams.find((item) => item.id === teamId); if (!team) return null;
-        Object.assign(team, updates, { id: team.id, eventId, guildId: event.guildId ?? null, updatedAt: now() }); return team;
+        Object.assign(team, updates, { id: team.id, eventId, guildId: event.guildId ?? null, updatedAt: now() });
+        event.lastTeamNumber = Math.max(event.lastTeamNumber ?? 0, team.number);
+        event.updatedAt = team.updatedAt;
+        return team;
       });
     },
     deleteTeam(eventId, teamId, guildId) {

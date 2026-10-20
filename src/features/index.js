@@ -10,3 +10,4 @@ export * from './srv_setupEvents.js';
 export * from './srv_sessions.js';
 export * from './srv_confirmations.js';
 
+export * from './srv_memberNames.js';

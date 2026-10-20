@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { PermissionFlagsBits } from 'discord.js';
+import { ChannelType, PermissionFlagsBits, PermissionsBitField } from 'discord.js';
 import { createEventsStore } from '../src/data/json_events.js';
+import { clubStore } from '../src/data/json_club.js';
+import { inspectEventSetup } from '../src/features/srv_setupEvents.js';
 import { registerEvent, editEvent, archiveEvent, listEvents, getEvent, bindLegacyEvents } from '../src/features/srv_events.js';
 import { createTeamWithRoles, assignMembersWithRoles, assignMentorsWithRoles, assignRosterWithRoles, removeRosterWithRoles, moveMemberWithRoles, getTeamDeletionImpact, removeTeamWithRoles, createTeamChannels, editTeamWithRoles, repairTeamWithRoles, getMyTeams } from '../src/features/srv_teams.js';
 
@@ -31,7 +33,8 @@ function fixture(t) {
   }, async delete(id) { if (fail.roleDelete.has(id)) throw new Error('Role deletion denied'); roles.delete(id); } };
   guild.channels = { cache: channels, async fetch(id) { return channels.get(id) ?? null; }, async create(options) {
     channelCreates += 1;
-    const channel = { ...options, initialOverwrites: options.permissionOverwrites, id: `channel-${channelCreates}`, guildId: guild.id, permissionOverwrites: { cache: new Map(), async set(values) { this.lastSet = values; } }, async edit(updates) { Object.assign(this, updates); return this; }, async delete() { if (fail.channelDelete.has(this.id)) throw new Error('Channel deletion denied'); channels.delete(this.id); } };
+    const overwriteEntries = (values) => values.map((entry) => [entry.id, { ...entry, allow: new PermissionsBitField(entry.allow ?? []), deny: new PermissionsBitField(entry.deny ?? []) }]);
+    const channel = { ...options, initialOverwrites: options.permissionOverwrites, id: `channel-${channelCreates}`, guild, guildId: guild.id, permissionsFor() { return { has: () => true }; }, permissionOverwrites: { cache: new Map(overwriteEntries(options.permissionOverwrites ?? [])), async set(values) { this.lastSet = values; this.cache = new Map(overwriteEntries(values)); } }, async edit(updates) { Object.assign(this, updates); return this; }, async delete() { if (fail.channelDelete.has(this.id)) throw new Error('Channel deletion denied'); channels.delete(this.id); } };
     channels.set(channel.id, channel); return channel;
   } };
   roles.set('core', { id: 'core', name: 'CORE', guild, position: 2 });
@@ -372,4 +375,137 @@ test('A move cannot grant an unsafe destination role and leaves the original mem
   assert.ok(f.members.get('moving-safe').roles.cache.has(team.memberRoleId));
   assert.equal(f.members.get('moving-safe').roles.cache.has(destination.memberRoleId), false);
   assert.deepEqual(f.store.getEventById(ctx.eventId, f.guild.id).teams[0].members, ['moving-safe']);
+});
+
+test('A confirmed move cannot revoke a protected source role or write a move journal', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f); f.makeMember('moving-protected');
+  await assignMembersWithRoles({ ...ctx, userIds: ['moving-protected'] });
+  const destination = await createTeamWithRoles({ ...f.ctx, eventId: ctx.eventId });
+  f.store.updateEvent(ctx.eventId, { coreRoleId: team.memberRoleId }, f.guild.id);
+  const before = f.store.snapshot();
+  await assert.rejects(moveMemberWithRoles({ ...ctx, teamId: destination.id, sourceTeamId: team.id, userId: 'moving-protected', confirmed: true }), /protected club role/);
+  assert.equal(f.members.get('moving-protected').roles.cache.has(team.memberRoleId), true);
+  assert.equal(f.members.get('moving-protected').roles.cache.has(destination.memberRoleId), false);
+  assert.deepEqual(f.store.snapshot(), before);
+});
+
+test('A confirmed move rejects shared source and destination membership roles before access changes', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f); f.makeMember('moving-shared');
+  await assignMembersWithRoles({ ...ctx, userIds: ['moving-shared'] });
+  const destination = await createTeamWithRoles({ ...f.ctx, eventId: ctx.eventId });
+  f.store.updateTeam(ctx.eventId, destination.id, { memberRoleId: team.memberRoleId }, f.guild.id);
+  const before = f.store.snapshot();
+  await assert.rejects(moveMemberWithRoles({ ...ctx, teamId: destination.id, sourceTeamId: team.id, userId: 'moving-shared', confirmed: true }), { code: 'UNSAFE_TEAM_ROLE' });
+  assert.equal(f.members.get('moving-shared').roles.cache.has(team.memberRoleId), true);
+  assert.deepEqual(f.store.snapshot(), before);
+});
+
+test('Confirmed repair applies CORE policy to every legacy channel while keeping mentor rooms private', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f);
+  f.store.updateEvent(ctx.eventId, { coreRoleId: 'core' }, f.guild.id);
+  f.roles.set('extra-core', { id: 'extra-core', name: 'Additional CORE', position: 2 });
+  const config = { guildId: f.guild.id, trustedRoleIds: {}, departmentRoleIds: {}, coreRoleIds: ['extra-core'] };
+  t.mock.method(clubStore, 'snapshot', () => ({ guilds: [config] }));
+  const legacyChannels = {};
+  for (const suffix of ['chat', 'resources', 'results', 'room', 'mentorsChat', 'mentorsRoom']) {
+    const channel = await f.guild.channels.create({ name: suffix, type: /room/i.test(suffix) ? ChannelType.GuildVoice : ChannelType.GuildText, permissionOverwrites: [] });
+    legacyChannels[suffix] = channel.id;
+  }
+  const category = await f.guild.channels.create({ name: 'category', type: ChannelType.GuildCategory, permissionOverwrites: [] });
+  f.store.updateTeam(ctx.eventId, team.id, { channels: legacyChannels, categoryId: category.id }, f.guild.id);
+  const before = await inspectEventSetup(ctx, { eventStore: f.store, config });
+  assert.equal(before.filter((issue) => issue.code === 'CORE_OVERWRITE_MISSING').length, 14);
+  await repairTeamWithRoles({ ...ctx, confirmed: true });
+  for (const [suffix, channelId] of Object.entries({ ...legacyChannels, category: category.id })) {
+    const policy = f.channels.get(channelId).permissionOverwrites.lastSet;
+    assert.equal(policy.some((entry) => entry.id === team.memberRoleId), !/mentor/i.test(suffix));
+    assert.ok(policy.some((entry) => entry.id === team.mentorRoleId));
+    for (const roleId of ['core', 'extra-core']) {
+      const core = policy.find((entry) => entry.id === roleId);
+      assert.ok(core.allow.includes(PermissionFlagsBits.ViewChannel));
+      assert.ok(core.deny.includes(PermissionFlagsBits.Speak));
+    }
+  }
+  assert.deepEqual(await inspectEventSetup(ctx, { eventStore: f.store, config }), []);
+});
+
+test('Stored team references cannot edit, delete, or remove a protected CORE role through team workflows', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f); f.makeMember('target');
+  t.mock.method(clubStore, 'snapshot', () => ({ guilds: [{ guildId: f.guild.id, coreRoleIds: [team.memberRoleId] }] }));
+  const before = f.store.snapshot();
+  const role = f.roles.get(team.memberRoleId);
+  const originalName = role.name;
+  const actions = [
+    () => editEvent({ ...ctx, name: 'Unsafe rename' }),
+    () => editTeamWithRoles({ ...ctx, name: 'Unsafe team rename' }),
+    () => removeTeamWithRoles({ ...ctx, confirmed: true }),
+    () => repairTeamWithRoles({ ...ctx, confirmed: true }),
+    () => createTeamChannels({ ...ctx }),
+    () => removeRosterWithRoles({ ...ctx, type: 'members', userIds: ['target'], confirmed: true }),
+  ];
+  for (const action of actions) await assert.rejects(action(), /protected club role/);
+  assert.equal(f.roles.get(team.memberRoleId), role);
+  assert.equal(role.name, originalName);
+  assert.deepEqual(role.permissions, []);
+  assert.deepEqual(f.store.snapshot(), before);
+  assert.equal(f.getChannelCreates(), 0);
+});
+
+test('Repair rejects identical role bindings before changing resources or declaring the team ready', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f);
+  f.store.updateTeam(ctx.eventId, team.id, { mentorRoleId: team.memberRoleId, provisioningStatus: 'REPAIR_REQUIRED' }, f.guild.id);
+  const before = f.store.snapshot();
+  const originalName = f.roles.get(team.memberRoleId).name;
+  await assert.rejects(repairTeamWithRoles({ ...ctx, confirmed: true }), /distinct IDs/);
+  assert.deepEqual(f.store.snapshot(), before);
+  assert.equal(f.roles.get(team.memberRoleId).name, originalName);
+});
+
+test('Team numbering retains edited numbers after deletion and restart', async (t) => {
+  const f = fixture(t); const { ctx } = await eventTeam(f);
+  await editTeamWithRoles({ ...ctx, name: 'Renumbered', number: 40 });
+  await removeTeamWithRoles({ ...ctx, confirmed: true });
+  const reopened = createEventsStore({ filePath: f.store.filePath });
+  const next = await createTeamWithRoles({ ...f.ctx, store: reopened, eventId: ctx.eventId });
+  assert.equal(next.number, 41);
+});
+
+test('Interrupted channel provisioning blocks assignments and moves out of the affected source team', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f); f.makeMember('moving');
+  await assignMembersWithRoles({ ...ctx, userIds: ['moving'] });
+  const destination = await createTeamWithRoles({ ...f.ctx, eventId: ctx.eventId });
+  f.store.updateTeam(ctx.eventId, team.id, { provisioningStatus: 'CHANNELS_PROVISIONING' }, f.guild.id);
+  await assert.rejects(assignMembersWithRoles({ ...ctx, userIds: ['moving'] }), /unresolved operation/);
+  await assert.rejects(moveMemberWithRoles({ ...ctx, teamId: destination.id, sourceTeamId: team.id, userId: 'moving', confirmed: true }), /unresolved operation/);
+  assert.equal(f.members.get('moving').roles.cache.has(destination.memberRoleId), false);
+  await repairTeamWithRoles({ ...ctx, confirmed: true });
+  await moveMemberWithRoles({ ...ctx, teamId: destination.id, sourceTeamId: team.id, userId: 'moving', confirmed: true });
+  assert.equal(f.members.get('moving').roles.cache.has(destination.memberRoleId), true);
+});
+
+test('Confirmed roster removal and moves validate reviewed versions after waiting for the event lock', async (t) => {
+  const f = fixture(t); const { team, ctx } = await eventTeam(f); f.makeMember('moving'); f.makeMember('new-member');
+  await assignMembersWithRoles({ ...ctx, userIds: ['moving'] });
+  const destination = await createTeamWithRoles({ ...f.ctx, eventId: ctx.eventId });
+  const expectedRosterVersion = JSON.stringify(f.store.getEventById(ctx.eventId, f.guild.id).teams);
+  const { withEventLock } = await import('../src/features/srv_events.js');
+  let release; let started;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const holding = withEventLock(ctx, ctx.eventId, async () => { started(); await gate; });
+  // The lock acquires asynchronously, so install its start signal before the microtask resumes.
+  const acquired = new Promise((resolve) => { started = resolve; });
+  await acquired;
+  const queuedRemoval = removeRosterWithRoles({ ...ctx, type: 'members', userIds: ['moving'], expectedRosterVersion, confirmed: true });
+  const queuedMove = moveMemberWithRoles({ ...ctx, teamId: destination.id, sourceTeamId: team.id, userId: 'moving', expectedRosterVersion, confirmed: true });
+  f.store.updateTeam(ctx.eventId, team.id, { members: ['moving', 'new-member'] }, f.guild.id);
+  release(); await holding;
+  await assert.rejects(queuedRemoval, { code: 'STALE_CONFIRMATION' });
+  await assert.rejects(queuedMove, { code: 'STALE_CONFIRMATION' });
+  assert.equal(f.members.get('moving').roles.cache.has(team.memberRoleId), true);
+  assert.equal(f.members.get('moving').roles.cache.has(destination.memberRoleId), false);
+  const currentVersion = JSON.stringify(f.store.getEventById(ctx.eventId, f.guild.id).teams);
+  const moved = await moveMemberWithRoles({ ...ctx, teamId: destination.id, sourceTeamId: team.id, userId: 'moving', expectedRosterVersion: currentVersion, confirmed: true });
+  assert.equal(moved.rosterVersion, JSON.stringify(f.store.getEventById(ctx.eventId, f.guild.id).teams));
+  const removed = await removeRosterWithRoles({ ...ctx, teamId: destination.id, type: 'members', userIds: ['moving'], expectedRosterVersion: moved.rosterVersion, confirmed: true });
+  assert.equal(removed.rosterVersion, JSON.stringify(f.store.getEventById(ctx.eventId, f.guild.id).teams));
 });

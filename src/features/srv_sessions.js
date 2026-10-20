@@ -13,6 +13,7 @@ export function createSessionStore({ ttl = 15 * 60_000, now = Date.now } = {}) {
     get(ctx, token) {
       const entry = sessions.get(token);
       if (!entry || entry.expires <= now() || entry.guildId !== ctx.guild.id || entry.actorId !== ctx.actor.id) {
+        if (entry?.expires <= now()) sessions.delete(token);
         const error = new Error('This screen has expired. Return Home and open it again.');
         error.code = 'SESSION_EXPIRED';
         throw error;

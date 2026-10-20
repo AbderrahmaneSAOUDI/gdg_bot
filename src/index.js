@@ -19,12 +19,12 @@ if (!token || token === 'your_bot_token_here') {
   process.exit(1);
 }
 
-// Initialize Discord Client with standard Gateway Intents + MessageContent for chat history extraction
+// Slash commands and UI need no privileged Gateway intents. Extracted HTTP
+// message content depends on the app's Developer Portal access independently.
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -87,21 +87,6 @@ console.log('📡 [GATEWAY] Connecting to Discord Gateway...');
 try {
   await client.login(token);
 } catch (error) {
-  if (error?.message?.toLowerCase().includes('disallowed intents') || error?.code === 'DisallowedIntents') {
-    console.error('\n' + '='.repeat(80));
-    console.error('❌ [DISCORD INTENTS ERROR] "Message Content Intent" is disabled in Discord Developer Portal!');
-    console.error('👉 Discord blanks out all chat messages (content: "") unless this intent is enabled.');
-    console.error('👉 To export full chat messages, please enable the toggle (takes 10 seconds):');
-    console.error('   1. Open: https://discord.com/developers/applications');
-    console.error('   2. Select your Bot Application');
-    console.error('   3. In the left sidebar, click "Bot"');
-    console.error('   4. Scroll down to "Privileged Gateway Intents"');
-    console.error('   5. Toggle ON: [✔] MESSAGE CONTENT INTENT');
-    console.error('   6. Click "Save Changes" at the bottom');
-    console.error('   7. Run: pnpm dev');
-    console.error('='.repeat(80) + '\n');
-  } else {
-    console.error('❌ [LOGIN ERROR] Failed to connect to Discord:', error);
-  }
+  console.error('❌ [LOGIN ERROR] Failed to connect to Discord:', error);
   process.exit(1);
 }

@@ -6,8 +6,11 @@
 - Runtime: Node 22/24, discord.js v14, dotenv, local JSON, single process.
 - Existing populated event data and local `.env` are preserved. No dependency additions.
 - Agent rules and local skills directories are absent; existing hooks and sidecars apply.
-- Verification on 2026-10-19: `npm test` and the post-change hook passed all 179 tests;
-  syntax checks passed for 77 JavaScript files and 66 safe application modules imported.
+- Reliability follow-up on 2026-10-20 reviewed releases 0.12–0.14 and restored
+  legacy button entry points, early acknowledgment, cold-cache names, safe role
+  repairs and roster confirmations, departed-member archive, and truthful exports.
+- Verification on 2026-10-20: the post-change hook (`npm test`) passed all 219 tests;
+  syntax checks passed for 80 JavaScript files and 67 safe application modules imported.
   `git diff --check` passed. The npm script uses built-in discovery on Windows/POSIX.
 - Live Discord validation remains an operator task: [test-guild checklist](../../docs/TEST_GUILD.md).
 - No push, commit, release, command registration, or live bot startup was performed.

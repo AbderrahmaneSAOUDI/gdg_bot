@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { GOOGLE_COLORS } from '../config/cfg_colors.js';
 import { requireCapability } from './srv_authorization.js';
 import { eventContext, withEventLock } from './srv_events.js';
-import { createTeamRoles, preflightTeamPermissions, assertSafeTeamAssignmentRoles, teamRoleNames, buildTeamChannelOverwrites, CORE_DENIED_PERMISSIONS } from './srv_roles.js';
+import { createTeamRoles, preflightTeamPermissions, assertTeamRoleBindings, assertSafeTeamAssignmentRoles, teamRoleNames, buildTeamChannelOverwrites, CORE_DENIED_PERMISSIONS } from './srv_roles.js';
 
 async function authorize(ctx) {
   const scoped = eventContext(ctx);
@@ -19,8 +19,11 @@ function locate(store, guildId, eventId, teamId, { allowArchived = false, allowC
   const team = teamId ? event.teams.find((item) => item.id === teamId) : null;
   if (teamId && !team) throw new Error('Team not found in this event.');
   if (team && !allowCleanup && team.cleanupStatus === 'PENDING') throw new Error('Team cleanup is pending; retry cleanup before editing.');
-  if (team && !allowRepair && (['REPAIR_REQUIRED', 'PROVISIONING'].includes(team.provisioningStatus) || ['PREPARED', 'REPAIR_REQUIRED'].includes(team.rosterOperation?.status) || team.repairOperation?.status === 'PREPARED')) throw new Error('This team has an unresolved operation. Review and confirm team repair first.');
+  if (team && !allowRepair && (['REPAIR_REQUIRED', 'PROVISIONING', 'CHANNELS_PROVISIONING'].includes(team.provisioningStatus) || ['PREPARED', 'REPAIR_REQUIRED'].includes(team.rosterOperation?.status) || ['PREPARED', 'REPAIR_REQUIRED'].includes(team.repairOperation?.status))) throw new Error('This team has an unresolved operation. Review and confirm team repair first.');
   return { event, team };
+}
+function assertRosterVersion(ctx, event) {
+  if (ctx.expectedRosterVersion !== undefined && ctx.expectedRosterVersion !== JSON.stringify(event.teams)) throw Object.assign(new Error('The event changed after this preview. Review its current impact and confirm again.'), { code: 'STALE_CONFIRMATION' });
 }
 const uniqueUsers = (values) => {
   if (!Array.isArray(values) || values.some((id) => typeof id !== 'string' || !id)) throw new Error('Invalid member selection.');
@@ -95,6 +98,7 @@ export async function removeTeamWithRoles(ctx) {
     const { event, team } = locate(store, guildId, ctx.eventId, ctx.teamId, { allowArchived: true, allowCleanup: true, allowRepair: true });
     if (ctx.expectedVersion !== undefined && ctx.expectedVersion !== JSON.stringify(team)) throw new Error('The team changed after this preview. Review its current impact and confirm again.');
     const resources = team.cleanupResources ?? resourceReferences(team);
+    assertTeamRoleBindings(ctx.guild, { ...team, coreRoleId: event.coreRoleId, roleIds: resources.filter((item) => item.type === 'role').map((item) => item.id), requireDistinct: false });
     await preflightTeamPermissions(ctx.guild, { channels: resources.some((item) => item.type === 'channel') });
     store.updateTeam(event.id, team.id, { cleanupStatus: 'PENDING', cleanupResources: resources, cleanupStartedBy: ctx.actor.id }, guildId);
     const failedResources = [];
@@ -137,8 +141,10 @@ async function changeRoster(ctx, type, remove = false) {
   if (remove && !ctx.confirmed) throw new Error('Confirm removal of team access first.');
   return withEventLock(ctx, ctx.eventId, async () => {
     const { event, team } = locate(store, guildId, ctx.eventId, ctx.teamId, { allowRepair: remove, allowCleanup: remove });
+    assertRosterVersion(ctx, event);
     if (remove && team.cleanupStartedBy) throw new Error('This team is pending confirmed deletion. Retry its cleanup first.');
     const roleId = type === 'members' ? team.memberRoleId : team.mentorRoleId;
+    if (remove) assertTeamRoleBindings(ctx.guild, { ...team, coreRoleId: event.coreRoleId, roleIds: [roleId], requireDistinct: false });
     const role = await fetchTeamRole(ctx.guild, roleId);
     if (!remove && (!role || team.provisioningStatus === 'REPAIR_REQUIRED')) throw new Error('Team roles need repair before assigning members.');
     if (role) await preflightTeamPermissions(ctx.guild, { roleIds: [roleId] });
@@ -174,7 +180,7 @@ async function changeRoster(ctx, type, remove = false) {
     try {
       const roster = remove ? team[type].filter((id) => !successes.includes(id)) : [...new Set([...team[type], ...successes])];
       const updated = store.updateTeam(event.id, team.id, { [type]: roster, rosterOperation: previousOperation, ...(needsRepair ? { provisioningStatus: 'REPAIR_REQUIRED' } : {}), updatedBy: ctx.actor.id }, guildId);
-      return { team: updated, successCount: successes.length, failedCount: failures.length, failures, departedCount, localOnlyCount };
+      return { team: updated, successCount: successes.length, failedCount: failures.length, failures, departedCount, localOnlyCount, rosterVersion: JSON.stringify(store.getEventById(event.id, guildId).teams) };
     } catch (error) {
       const repair = [];
       for (const { member, roleId } of changed.reverse()) {
@@ -195,12 +201,16 @@ export async function moveMemberWithRoles(ctx) {
   if (!ctx.confirmed) throw new Error('Confirm the move and access removal first.');
   return withEventLock(ctx, ctx.eventId, async () => {
     const { event, team: destination } = locate(store, guildId, ctx.eventId, ctx.teamId);
+    assertRosterVersion(ctx, event);
     const source = event.teams.find((item) => item.id === ctx.sourceTeamId);
     if (!source || source.id === destination.id) throw new Error('Select a different source team in this event.');
+    locate(store, guildId, ctx.eventId, source.id);
+    assertTeamRoleBindings(ctx.guild, { ...source, coreRoleId: event.coreRoleId, roleIds: [source.memberRoleId], requireDistinct: false });
     if (!source.members.includes(ctx.userId)) throw new Error('This member no longer belongs to the source team.');
     if (source.cleanupStatus === 'PENDING' || source.provisioningStatus === 'REPAIR_REQUIRED' || ['PREPARED', 'REPAIR_REQUIRED'].includes(source.rosterOperation?.status)) throw new Error('Source team cleanup or repair is pending.');
     const roleIds = [source.memberRoleId, destination.memberRoleId];
     if (roleIds.some((id) => !id)) throw new Error('Both teams need valid membership roles.');
+    if (source.memberRoleId === destination.memberRoleId) throw Object.assign(new Error('Source and destination teams need distinct membership roles before moving a member.'), { code: 'UNSAFE_TEAM_ROLE' });
     await preflightTeamPermissions(ctx.guild, { roleIds });
     await assertSafeTeamAssignmentRoles(ctx.guild, { memberRoleId: destination.memberRoleId, mentorRoleId: destination.mentorRoleId, coreRoleId: event.coreRoleId, assignmentRoleIds: [destination.memberRoleId] });
     const member = await ctx.guild.members.fetch({ user: ctx.userId, force: true });
@@ -225,7 +235,8 @@ export async function moveMemberWithRoles(ctx) {
         from.rosterOperation = to.rosterOperation = null;
         from.updatedBy = to.updatedBy = ctx.actor.id;
       });
-      return { sourceTeamId: source.id, team: store.getEventById(event.id, guildId).teams.find((item) => item.id === destination.id) };
+      const saved = store.getEventById(event.id, guildId);
+      return { sourceTeamId: source.id, team: saved.teams.find((item) => item.id === destination.id), rosterVersion: JSON.stringify(saved.teams) };
     } catch (error) {
       const repair = [];
       if (removed) { try { await member.roles.add(source.memberRoleId); } catch { repair.push(source.memberRoleId); } }
@@ -252,6 +263,7 @@ export async function editTeamWithRoles(ctx) {
     const number = ctx.number ?? team.number;
     if (!name || name.length > 80 || !Number.isSafeInteger(number) || number < 1 || event.teams.some((item) => item.id !== team.id && item.number === number)) throw new Error('Provide a valid team name and unique positive number.');
     const names = teamRoleNames(event.name, number);
+    assertTeamRoleBindings(ctx.guild, { ...team, coreRoleId: event.coreRoleId });
     await preflightTeamPermissions(ctx.guild, { roleIds: [team.memberRoleId, team.mentorRoleId], channels: !!(team.textChannelId || team.voiceChannelId || team.categoryId || Object.values(team.channels ?? {}).length) });
     const changed = [];
     try {
@@ -288,6 +300,7 @@ export async function createTeamChannels(ctx) {
     const { event, team } = locate(store, guildId, ctx.eventId, ctx.teamId);
     const bot = await preflightTeamPermissions(ctx.guild, { channels: true, roleIds: [team.memberRoleId, team.mentorRoleId] });
     if (!team.memberRoleId || !team.mentorRoleId) throw new Error('Provision team roles before creating channels.');
+    await assertSafeTeamAssignmentRoles(ctx.guild, { ...team, coreRoleId: event.coreRoleId, assignmentRoleIds: [team.memberRoleId, team.mentorRoleId] });
     // CORE is an access policy binding, separate from the management capability mapping.
     const { clubStore } = await import('../data/json_club.js');
     const config = clubStore.snapshot().guilds.find((item) => item.guildId === guildId) ?? {};
@@ -366,8 +379,7 @@ export async function repairTeamWithRoles(ctx) {
     const bot = await preflightTeamPermissions(ctx.guild, { channels: channelReferences.size > 0 });
     const { clubStore } = await import('../data/json_club.js');
     const config = clubStore.snapshot().guilds.find((item) => item.guildId === guildId) ?? {};
-    const protectedRoles = new Set([...Object.values(config.trustedRoleIds ?? {}), ...Object.values(config.departmentRoleIds ?? {}), config.coreRoleId, event.coreRoleId].filter(Boolean));
-    if ([team.memberRoleId, team.mentorRoleId].some((id) => protectedRoles.has(id))) throw new Error('A team role conflicts with a protected club role. Correct the binding before repair.');
+    assertTeamRoleBindings(ctx.guild, { ...team, coreRoleId: event.coreRoleId });
     const operation = { id: randomUUID(), actorId: ctx.actor.id, status: 'PREPARED', createdAt: new Date().toISOString() };
     store.updateTeam(event.id, team.id, { repairOperation: operation, provisioningStatus: 'REPAIR_REQUIRED' }, guildId);
     const names = teamRoleNames(event.name, team.number);
@@ -441,12 +453,10 @@ export async function repairTeamWithRoles(ctx) {
         const oldName = channel.name;
         await channel.edit({ name: `${channelName(event.name, team.number, team.name, false).replace(/-chat$/, '')}-${suffix}`.slice(0, 100) });
         rollback.push(() => channel.edit({ name: oldName }));
-        // Legacy mentor-only rooms preserve their specialized access; standard collaboration rooms use the shared policy.
-        if (['chat', 'room', 'voice', 'category'].includes(suffix)) {
-          const previous = [...(channel.permissionOverwrites.cache?.values() ?? [])].map((item) => ({ id: item.id, type: item.type, allow: item.allow.bitfield, deny: item.deny.bitfield }));
-          await channel.permissionOverwrites.set(overwrites);
-          rollback.push(() => channel.permissionOverwrites.set(previous));
-        }
+        // Apply the same policy to surviving and recreated channels, preserving mentor-only rooms.
+        const previous = [...(channel.permissionOverwrites.cache?.values() ?? [])].map((item) => ({ id: item.id, type: item.type, allow: item.allow.bitfield, deny: item.deny.bitfield }));
+        await channel.permissionOverwrites.set(/mentor/i.test(suffix) ? mentorOverwrites : overwrites);
+        rollback.push(() => channel.permissionOverwrites.set(previous));
       }
       const repaired = store.updateTeam(event.id, team.id, { ...updates, provisioningStatus: 'READY', cleanupStatus: null, repairOperation: null, rosterOperation: null, rosterRepair: [], renameRepair: [], channelRepair: [], repairResources: [], updatedBy: ctx.actor.id }, guildId);
       return { team: repaired, repairedRoles: 2, rosterChanges, channelCount: channelReferences.size };

@@ -25,7 +25,7 @@ export async function inspectEventSetup(ctx, { eventStore, config }) {
         const role = roleId ? await ctx.guild.roles.fetch(roleId, { force: true }).catch(() => null) : null;
         if (!role) issues.push({ ...base, code: 'TEAM_ROLE_MISSING', roleId, assignmentType });
         else {
-          const protectedIds=[...Object.values(config.trustedRoleIds||{}),...Object.values(config.departmentRoleIds||{}),config.coreRoleId,event.coreRoleId].filter(Boolean);
+          const protectedIds=[...Object.values(config.trustedRoleIds||{}),...Object.values(config.departmentRoleIds||{}),config.coreRoleId,...(config.coreRoleIds||[]),event.coreRoleId].filter(Boolean);
           if(team.memberRoleId===team.mentorRoleId||protectedIds.includes(roleId)||UNSAFE_ASSIGNMENT_PERMISSION_NAMES.some(key=>role.permissions?.has?.(PermissionFlagsBits[key])))issues.push({...base,code:'UNSAFE_TEAM_ROLE',roleId,assignmentType});
         }
         for (const userId of team[assignmentType] || []) {
@@ -40,25 +40,27 @@ export async function inspectEventSetup(ctx, { eventStore, config }) {
       for (const [key, operation] of Object.entries({roster:team.rosterOperation,repair:team.repairOperation})) {
         if(operation&&['PREPARED','REPAIR_REQUIRED'].includes(operation.status))issues.push({...base,code:'TEAM_PARTIAL_OPERATION',operationType:key,status:operation.status});
       }
-      const channelIds = [...new Set([team.textChannelId, team.voiceChannelId, ...Object.values(team.channels || {})].filter(Boolean))];
-      const coreRoleId = config.coreRoleId || event.coreRoleId;
-      if (channelIds.length && !coreRoleId) issues.push({ ...base, code: 'CORE_BINDING_MISSING' });
+      const channelIds = [...new Set([team.categoryId, team.textChannelId, team.voiceChannelId, ...Object.values(team.channels || {})].filter(Boolean))];
+      const coreRoleIds = [...new Set([config.coreRoleId, ...(config.coreRoleIds || []), event.coreRoleId].filter(Boolean))];
+      if (channelIds.length && !coreRoleIds.length) issues.push({ ...base, code: 'CORE_BINDING_MISSING' });
       for (const channelId of channelIds) {
         const channel = await ctx.guild.channels.fetch(channelId, { force: true }).catch(() => null);
         if (!channel || channel.guild?.id !== ctx.guild.id || !channel.permissionsFor(ctx.guild.members.me)?.has(PermissionFlagsBits.ViewChannel)) {
           issues.push({ ...base, code: 'CHANNEL_INACCESSIBLE', channelId }); continue;
         }
-        if (!coreRoleId) continue;
-        const overwrite = channel.permissionOverwrites?.cache?.get(coreRoleId);
-        if (!overwrite || ![PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory].every((bit) => overwrite.allow?.has?.(bit)) || !restricted.every((bit) => overwrite.deny?.has?.(bit))) issues.push({ ...base, code: 'CORE_OVERWRITE_MISSING', channelId, channelName: channel.name });
-        const coreMembers = [...(ctx.guild.members.cache?.values() || [])].filter((member) => member.roles?.cache?.has(coreRoleId));
+        if (!coreRoleIds.length) continue;
+        for (const coreRoleId of coreRoleIds) {
+          const overwrite = channel.permissionOverwrites?.cache?.get(coreRoleId);
+          if (!overwrite || ![PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory].every((bit) => overwrite.allow?.has?.(bit)) || !restricted.every((bit) => overwrite.deny?.has?.(bit))) issues.push({ ...base, code: 'CORE_OVERWRITE_MISSING', channelId, channelName: channel.name, roleId: coreRoleId });
+        }
+        const coreMembers = [...(ctx.guild.members.cache?.values() || [])].filter((member) => coreRoleIds.some((id) => member.roles?.cache?.has(id)));
         for (const other of channel.permissionOverwrites?.cache?.values() || []) {
-          if ([ctx.guild.id, ctx.guild.members.me?.id, coreRoleId].includes(other.id)) continue;
+          if ([ctx.guild.id, ctx.guild.members.me?.id, ...coreRoleIds].includes(other.id)) continue;
           const appliesToCore = coreMembers.some((member) => member.id === other.id || member.roles.cache.has(other.id));
           if (appliesToCore && restricted.some((bit) => other.allow?.has?.(bit))) issues.push({ ...base, code: 'CORE_OVERWRITE_CONFLICT', channelId, channelName: channel.name, conflictingId: other.id });
         }
         for (const member of ctx.guild.members.cache?.values() || []) {
-          if (member.roles?.cache?.has(coreRoleId) && member.permissions?.has(PermissionFlagsBits.Administrator)) issues.push({ ...base, code: 'CORE_ADMIN_OVERRIDE', channelId, userId: member.id, displayName: member.displayName });
+          if (coreRoleIds.some((id) => member.roles?.cache?.has(id)) && member.permissions?.has(PermissionFlagsBits.Administrator)) issues.push({ ...base, code: 'CORE_ADMIN_OVERRIDE', channelId, userId: member.id, displayName: member.displayName });
         }
       }
     }

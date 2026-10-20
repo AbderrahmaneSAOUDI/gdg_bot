@@ -20,6 +20,8 @@ capabilities. The authorized server extractor remains available to administrator
   require club-wide management. Decisions retain resolver, time, and reason.
 - Managers register existing Discord members, transfer, archive/reactivate, and
   confirm leadership appointments. Archive does not kick or ban anyone.
+  Confirmed archive also supports members who have left Discord; connection or
+  permission failures never count as proof of departure.
 - Events support edits and archive browsing. Competition teams have independent
   membership, mentors, roster moves/removals, paginated rosters, safe deletion,
   explicit private text/voice channels, and confirmed repair.
@@ -76,10 +78,27 @@ roles and there is no ambiguous existing canonical role. Existing unbound roles
 require explicit binding. Leadership roles are never implicitly created or granted
 by a profile field.
 
+Bindings can be corrected one at a time even when another stored role has been
+deleted or has unsafe permissions. Explicit valid bindings resolve duplicate-name
+ambiguity. Department membership IDs must remain distinct from every CORE role ID.
+
 Place the bot's highest role above all roles it manages. Membership changes need
 **Manage Roles**; provisioning channels also needs **Manage Channels**. Hub messages
 need **View Channel**, **Send Messages**, and **Embed Links**. Native member selectors
 and individual REST member fetches avoid a full server member synchronization.
+
+The Gateway uses the unprivileged Guilds and Guild Messages intents, so `/bot`
+and its buttons do not require Message Content access. Full message bodies in
+server exports still depend on Message Content access being enabled/approved for
+the application in the Developer Portal. Discord's HTTP restrictions apply
+independently of Gateway subscriptions; see the
+[official Gateway documentation](https://docs.discord.com/developers/events/gateway#http-restrictions).
+
+Server extraction refreshes role/channel directories and writes
+`extraction_report.json` plus per-channel `message_history_status.json`. Failed
+or incomplete history reads produce a partial result, preserving messages already
+fetched. Thread histories, deleted messages, and content withheld by Discord are
+outside this exporter; check the report before treating an export as complete.
 
 The channel policy denies everyone visibility, grants collaboration to team roles,
 and gives CORE view/read access with posting, reacting, threads, and speaking denied.
@@ -127,6 +146,13 @@ npm run dev     # Start the live bot with source watching
 `/bot deploy_channel:#club-hub` requires Administrator or Manage Guild and posts a
 persistent public entry point. Every click opens private content for the clicker;
 the public message is never converted into a personal or management screen.
+
+Older event/team messages remain entry points: Previous/Next uses the original
+page numbering, Add opens the current modal, Assign opens a fresh member picker,
+and Delete opens the current impact review. Old submitted forms and user selections
+expire with a Home route so their stale values cannot perform a mutation. Ordinary
+button actions acknowledge before storage/capability reads and Discord work;
+modal-opening buttons use `showModal` as their immediate response.
 
 ## Documentation
 

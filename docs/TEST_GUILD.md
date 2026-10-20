@@ -58,6 +58,19 @@ visibility. Do not use a production guild for the first validation pass.
     or channel using Repair Team. Check that pending deletion uses cleanup retry.
 18. Restart the bot intentionally. Verify club/event data and request history
     survive. Old session previews should expire safely with a working Home path.
+19. Use existing messages sent by releases 0.12/0.13. Test team Previous/Next,
+    Add Event/Team, Assign Members/Mentors, and Delete Team. They must open the
+    current screen privately; an old delete selection must show an impact review.
+    Old modal submissions and user selections must expire without changing data.
+20. Browse rosters, mentors, and requests immediately after a cache-cold restart.
+    Visible names must resolve through individual member reads without requiring
+    the privileged Guild Members intent. Verify controls acknowledge while those
+    reads are delayed and modal-opening buttons still open their form directly.
+21. Remove access to one export channel or its Read Message History permission,
+    then invoke Extract Server Data. Verify the result says the export is partial,
+    accessible histories remain saved, and both root/per-channel reports identify
+    the incomplete history. Core `/bot` navigation must work with Message Content
+    disabled; full exported message bodies require the app's Portal content access.
 
 Never test corruption against populated production JSON. Automated corruption and
 write-failure tests already run in temporary directories without Discord credentials.

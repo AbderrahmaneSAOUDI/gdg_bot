@@ -10,6 +10,7 @@ export function createConfirmationStore({ now = Date.now, ttl = 15 * 60_000 } = 
     verify(ctx, action, target, value) {
       const entry = previews.get(key(ctx, action, target));
       if (!entry || entry.expires <= now() || JSON.stringify(entry.value) !== JSON.stringify(value)) {
+        previews.delete(key(ctx, action, target));
         const error = new Error('Confirmation expired or changed'); error.code = 'STALE_CONFIRMATION'; throw error;
       }
       previews.delete(key(ctx, action, target));

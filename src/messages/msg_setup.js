@@ -22,6 +22,7 @@ export function describeSetupIssue(issue) {
     TEAM_ROLE_DRIFT: `${issue.eventName} / ${issue.teamName}: ${name} lacks the stored ${issue.assignmentType} role. Use Manage Roster to retry the assignment.`,
     TEAM_PARTIAL_OPERATION: `${issue.eventName} / ${issue.teamName} has unfinished provisioning or cleanup (${issue.status}). Retry its explicit management action and review recorded failures.`,
     CORE_BINDING_MISSING: `${issue.eventName} / ${issue.teamName} has no configured CORE role for its channels. Bind CORE before provisioning or repairing channels.`,
+    CORE_MEMBERSHIP_ROLE_COLLISION: `${name} uses a CORE view-only role for department membership. Bind separate roles before approving members or syncing access.`,
     CORE_OVERWRITE_MISSING: `${issue.channelName || issue.channelId} does not preserve every CORE view-only overwrite. Review channel permissions before allowing team activity.`,
     CORE_OVERWRITE_CONFLICT: `${issue.channelName || issue.channelId} has another overwrite (${issue.conflictingId}) that can grant CORE members messaging or voice access if it also applies to them. Discord combines role allows; review overlapping roles.`,
     CORE_ADMIN_OVERRIDE: `${name} has Discord Administrator, which bypasses channel overwrites. CORE view-only restrictions cannot constrain this account.`,

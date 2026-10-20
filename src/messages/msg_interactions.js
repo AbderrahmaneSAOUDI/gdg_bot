@@ -17,15 +17,17 @@ export const INTERACTION_ERRORS = Object.freeze({
   INVALID_STATUS: 'This status is invalid. Refresh the screen and choose an available action.',
   ALREADY_REGISTERED: 'This member already has an active club record. Use their member details to manage it.',
   SESSION_EXPIRED: 'This screen expired. Return Home and open a fresh screen.',
+  COMMAND_UNAVAILABLE: 'This command is no longer available. Open /bot to use the current club hub.',
   STALE_CONFIRMATION: 'The record changed after the preview. Open the impact review again.',
   EVENT_ARCHIVED: 'This event is archived. Its history remains available for browsing.',
   INVALID_MEMBER: 'Choose an existing human member of this server.',
   UNSAFE_MEMBERSHIP_ROLE: 'The configured membership role has the wrong name or elevated guild permissions. An administrator must bind a canonical department role with minimal permissions.',
   UNSAFE_TEAM_ROLE: 'A team role has elevated guild permissions or conflicts with a protected club role. Review its bindings and use the confirmed Repair Team action before assigning people.',
-  AMBIGUOUS_ROLE_BINDING: 'Each leadership and membership role must use a distinct Discord role ID. Review the bindings in Check Setup.',
+  AMBIGUOUS_ROLE_BINDING: 'Leadership and department membership roles must use distinct Discord role IDs. Department membership roles must also be separate from CORE view-only roles. Review the bindings in Check Setup.',
 });
 export const INTERACTION_MESSAGES = Object.freeze({
   updated: 'The change was completed and recorded.', closed: 'Session closed.',
+  deployHelp: 'To deploy a current public hub, use /bot and select its deploy_channel option. An Administrator or Manage Server operator must choose the destination channel.',
   binding: 'Review this role ID binding before confirming. Role names alone never grant management access.',
   repair: 'Reconcile this member with the stored primary department and status. This can grant the stored department role and revoke other configured department membership roles. Unrelated roles are preserved.',
 });

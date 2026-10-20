@@ -7,23 +7,37 @@ import { uiSessions } from './srv_sessions.js';
 import { confirmations } from './srv_confirmations.js';
 import { getHubPayload } from '../ui/view_hub.js';
 import * as ui from '../ui/view_event_management.js';
-import { clubText } from '../ui/components/c_club.js';
+import { clubText, clubPage } from '../ui/components/c_club.js';
 import { acknowledge, respond, interactionContext } from '../utils/f_interactionResponse.js';
 import { EVENT_MANAGEMENT_MESSAGES as M } from '../messages/msg_eventManagement.js';
 import { EVENT_CONTROLS as L } from '../config/cfg_eventManagement.js';
 import { INTERACTION_MESSAGES } from '../messages/msg_interactions.js';
-import { formatUserName } from '../utils/f_formatters.js';
+import { resolveMemberNames } from './srv_memberNames.js';
 
 function fail(code='FORBIDDEN') {const error=new Error(code);error.code=code;throw error;}
-function names(ctx) {
-  const assigned=ctx.store.getAllEvents(ctx.guild.id).flatMap(event=>event.teams.flatMap(team=>[...team.members,...team.mentors]));
-  return Object.fromEntries([...new Set([...(ctx.guild.members.cache?.keys()||[]),...assigned])].map(id=>[id,formatUserName(ctx.guild,id)]));
-}
 const version = (value) => JSON.stringify(value);
+
+/** Old public messages remain entry points; stale mutation submissions never apply. */
+export function resolveLegacyEventRoute(parsed, values = []) {
+  const { namespace, action, params: [eventId, teamOrPage] } = parsed;
+  if (namespace === 'event' && action === 'add') return { action: 'add', params: [] };
+  if (namespace === 'event' && ['detail', 'select'].includes(action)) return { action: 'detail', params: [values[0] || eventId] };
+  if (namespace === 'mentor' && action === 'view') return { action: 'mentors', params: [eventId, 0] };
+  if (namespace !== 'team') return null;
+  if (['view', 'page'].includes(action)) return { action: 'teams', params: [eventId, Math.max(0, Number(teamOrPage || 1) - 1)] };
+  if (action === 'add') return { action: 'tadd', params: [eventId] };
+  if (action === 'delete_menu') return { action: 'deletepick', params: [eventId, 0] };
+  if (action === 'delete_confirm' && values[0]) return { action: 'delete', params: [eventId, values[0]] };
+  if (['assign_members', 'assign_mentors'].includes(action)) return teamOrPage
+    ? { action: 'legacy_pick', params: [eventId, teamOrPage, action === 'assign_members' ? 'members' : 'mentors'] }
+    : { action: 'teams', params: [eventId, 0] };
+  if (action === 'assign_target' && values[0]) return { action: 'legacy_pick', params: [eventId, values[0], teamOrPage] };
+  return null;
+}
 
 export async function handleEventInteraction(interaction,parsed,{club=clubServices,sessions=uiSessions,previews=confirmations,eventServices=events,teamServices=teams}={}) {
   const ctx={...interactionContext(interaction),store:club.eventStore||eventsStore},[a,b,c]=parsed.params,action=parsed.action;
-  let caps=club.capabilities(ctx);
+  let caps;
   const manage=()=>{if(!caps.eventManage)fail();};
   const getEvent=(id)=>{const event=eventServices.getEvent(id,ctx);if(!event)fail('NOT_FOUND');return event;};
   const getTeam=(eventId,teamId)=>{const event=getEvent(eventId),team=event.teams.find(t=>t.id===teamId);if(!team)fail('NOT_FOUND');return {event,team};};
@@ -33,7 +47,7 @@ export async function handleEventInteraction(interaction,parsed,{club=clubServic
     const channelId=team?.textChannelId||team?.channels?.chat;
     const channel=channelId?await ctx.guild.channels.fetch(channelId,{force:true}).catch(()=>null):null;
     const channelUrl=channel?.guild?.id===ctx.guild.id&&channel?.permissionsFor(ctx.actor)?.has(PermissionFlagsBits.ViewChannel)?`https://discord.com/channels/${ctx.guild.id}/${channel.id}`:undefined;
-    return ui.getManagedTeamsPayload({event,page:number,canManage:caps.eventManage,names:names(ctx),channelUrl});
+    return ui.getManagedTeamsPayload({event,page:number,canManage:caps.eventManage,channelUrl});
   };
   const review=(data,title,description,fields=[])=>{
     const token=sessions.put(ctx,data);previews.preview(ctx,'event',token,{version:data.version});
@@ -41,6 +55,7 @@ export async function handleEventInteraction(interaction,parsed,{club=clubServic
   };
   // Modal triggers perform permission checks without slow work or deferring.
   if(['add','edit','tadd','tedit'].includes(action)) {
+    caps=club.capabilities(ctx);
     manage();const event=action==='add'?undefined:getEvent(a);
     if(event?.status==='ARCHIVED')fail('EVENT_ARCHIVED');
     const team=action==='tedit'?getTeam(a,b).team:undefined;
@@ -59,15 +74,30 @@ export async function handleEventInteraction(interaction,parsed,{club=clubServic
     case 'detail': payload=detail(a);break;
     case 'teams': payload=await teamPage(a,b);break;
     case 'focus': {const {event,team}=getTeam(a,b);payload=await teamPage(a,event.teams.findIndex(item=>item.id===team.id));break;}
-    case 'mentors': payload=ui.getManagedMentorsPayload({event:getEvent(a),page:b,names:names(ctx)});break;
-    case 'roster': {const pair=getTeam(a,b);payload=ui.getManagedRosterPayload({...pair,page:c,names:names(ctx)});break;}
+    case 'mentors': {
+      const event=getEvent(a),userIds=clubPage(event.teams.flatMap(team=>team.mentors),b,8).items;
+      payload=ui.getManagedMentorsPayload({event,page:b,names:await resolveMemberNames(ctx.guild,userIds)});break;
+    }
+    case 'roster': {
+      const pair=getTeam(a,b),userIds=clubPage([...pair.team.members,...pair.team.mentors],c,8).items;
+      payload=ui.getManagedRosterPayload({...pair,page:c,names:await resolveMemberNames(ctx.guild,userIds)});break;
+    }
     case 'manage': {
       manage();const pair=getTeam(a,b);if(pair.event.status==='ARCHIVED')fail('EVENT_ARCHIVED');
       const token=sessions.put(ctx,{eventId:a,teamId:b});payload=ui.getManagedRosterPayload({...pair,manage:true,token});break;
     }
+    case 'legacy_pick': {
+      manage();if(!['members','mentors'].includes(c))fail();
+      const pair=getTeam(a,b);if(pair.event.status==='ARCHIVED')fail('EVENT_ARCHIVED');
+      const token=sessions.put(ctx,{eventId:a,teamId:b});
+      payload=ui.getRosterPickerPayload({...pair,token,type:c});break;
+    }
     case 'pick': case 'pickpage': {
       manage();if(!['members','mentors','removeMembers','removeMentors'].includes(b))fail();
-      const data=sessions.get(ctx,a),pair=getTeam(data.eventId,data.teamId);payload=ui.getRosterPickerPayload({...pair,token:a,type:b,page:c||0,names:names(ctx)});break;
+      const data=sessions.get(ctx,a),pair=getTeam(data.eventId,data.teamId);
+      const field=b==='removeMembers'?'members':b==='removeMentors'?'mentors':null;
+      const userIds=field?clubPage([...new Set(pair.team[field])],c,8).items:[];
+      payload=ui.getRosterPickerPayload({...pair,token:a,type:b,page:c||0,names:await resolveMemberNames(ctx.guild,userIds)});break;
     }
     case 'assign': {
       manage();const data=sessions.get(ctx,a),pair=getTeam(data.eventId,data.teamId),userIds=[...new Set(interaction.values||[])];
@@ -75,7 +105,8 @@ export async function handleEventInteraction(interaction,parsed,{club=clubServic
       const moves=b==='members'?userIds.flatMap(userId=>pair.event.teams.filter(t=>t.id!==pair.team.id&&t.members.includes(userId)).map(t=>({userId,sourceTeamId:t.id}))):[];
       if(b.startsWith('remove')||moves.length) {
         const data={kind:'roster',eventId:pair.event.id,teamId:pair.team.id,type:b,userIds,moves,version:version(pair.event.teams)};
-        payload=review(data,b.startsWith('remove')?M.titleRemove:M.titleMove,b.startsWith('remove')?M.remove:M.move,[{name:L.eventTeam,value:`${clubText(pair.event.name,100)} / ${clubText(pair.team.name,100)}`},{name:L.people,value:userIds.map(id=>clubText(names(ctx)[id]||id,60)).join('\n').slice(0,1000)}]);
+        const names=await resolveMemberNames(ctx.guild,userIds);
+        payload=review(data,b.startsWith('remove')?M.titleRemove:M.titleMove,b.startsWith('remove')?M.remove:M.move,[{name:L.eventTeam,value:`${clubText(pair.event.name,100)} / ${clubText(pair.team.name,100)}`},{name:L.people,value:userIds.map(id=>clubText(names[id],60)).join('\n').slice(0,1000)}]);
       } else {
         const result=await teamServices[b==='members'?'assignMembersWithRoles':'assignMentorsWithRoles']({...ctx,...data,userIds});payload=ui.getEventNoticePayload({message:M.assignment(result),...data});
       }
@@ -121,19 +152,26 @@ export async function handleEventInteraction(interaction,parsed,{club=clubServic
     case 'confirm': {
       const data=sessions.get(ctx,a);if(data.kind==='legacy'){if(!caps.setupManage)fail();}else manage();
       const current=data.kind==='legacy'?ctx.store.getAllEvents().filter(e=>!e.guildId):data.kind==='archive'?getEvent(data.eventId):['delete','repair'].includes(data.kind)?getTeam(data.eventId,data.teamId).team:getEvent(data.eventId).teams;
-      if(version(current)!==data.version)fail('STALE_CONFIRMATION');
-      previews.verify(ctx,'event',a,{version:data.version});
+      previews.verify(ctx,'event',a,{version:version(current)});
       if(data.kind==='archive') {await eventServices.archiveEvent({...ctx,eventId:data.eventId,expectedVersion:data.version,confirmed:true});payload=detail(data.eventId);}
       else if(data.kind==='delete') {const result=await teamServices.removeTeamWithRoles({...ctx,...data,expectedVersion:data.version,confirmed:true});payload=ui.getEventNoticePayload({message:M.cleanup(result),eventId:data.eventId});}
       else if(data.kind==='legacy') {await eventServices.bindLegacyEvents({...ctx,confirmed:true});payload=ui.getEventNoticePayload({message:INTERACTION_MESSAGES.updated});}
       else if(data.kind==='repair') {await teamServices.repairTeamWithRoles({...ctx,eventId:data.eventId,teamId:data.teamId,expectedVersion:data.version,confirmed:true});payload=ui.getEventNoticePayload({message:M.repaired,eventId:data.eventId,teamId:data.teamId});}
       else if(data.kind==='roster') {
         let result;
-        if(data.type.startsWith('remove'))result=await teamServices.removeRosterWithRoles({...ctx,...data,type:data.type==='removeMembers'?'members':'mentors',confirmed:true});
+        if(data.type.startsWith('remove'))result=await teamServices.removeRosterWithRoles({...ctx,...data,type:data.type==='removeMembers'?'members':'mentors',expectedRosterVersion:data.version,confirmed:true});
         else {
           const remaining=data.userIds.filter(id=>!data.moves.some(m=>m.userId===id));
-          result=remaining.length?await teamServices.assignMembersWithRoles({...ctx,...data,userIds:remaining}):{successCount:0,failedCount:0};
-          for(const move of data.moves) {try{await teamServices.moveMemberWithRoles({...ctx,...data,...move,confirmed:true});result.successCount++;}catch{result.failedCount++;}}
+          result=remaining.length?await teamServices.assignMembersWithRoles({...ctx,...data,userIds:remaining,expectedRosterVersion:data.version}):{successCount:0,failedCount:0,rosterVersion:data.version};
+          for(const [index,move] of data.moves.entries()) {
+            try {
+              const moved=await teamServices.moveMemberWithRoles({...ctx,...data,...move,expectedRosterVersion:result.rosterVersion,confirmed:true});
+              result.rosterVersion=moved.rosterVersion;result.successCount++;
+            } catch(error) {
+              if(error.code==='STALE_CONFIRMATION')throw error;
+              result.failedCount+=data.moves.length-index;break;
+            }
+          }
         }
         payload=ui.getEventNoticePayload({message:M.assignment(result),eventId:data.eventId,teamId:data.teamId});
       }else fail('SESSION_EXPIRED');

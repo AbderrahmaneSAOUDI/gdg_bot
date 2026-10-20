@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { ChannelType, PermissionFlagsBits, ButtonStyle, Collection } from 'discord.js';
 
@@ -22,6 +23,7 @@ import {
   formatServerInfo,
   formatRoleInfo,
   extractServerData,
+  fetchAllMessagesFromCreation,
 } from '../src/features/srv_extractor.js';
 import { EXTRACTOR_MESSAGES } from '../src/messages/msg_extractor.js';
 
@@ -236,10 +238,8 @@ test('3. Server Extractor Data Formatters', async (t) => {
 });
 
 test('4. Full Server Data Extraction Pipeline', async (t) => {
-  const tmpDir = path.resolve(process.cwd(), 'test/tmp_server_data');
-
-  // Clean up any existing tmp dir
-  await fs.rm(tmpDir, { recursive: true, force: true });
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gdg-extractor-'));
+  t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
 
   const mockRoles = new Collection([
     [
@@ -384,8 +384,9 @@ test('4. Full Server Data Extraction Pipeline', async (t) => {
     preferredLocale: 'en-US',
     iconURL: () => 'https://example.com/icon.png',
     bannerURL: () => null,
-    roles: { cache: mockRoles },
+    roles: { cache: mockRoles, fetch: async () => mockRoles },
     channels: {
+      fetch: async () => mockGuild.channels.cache,
       cache: new Collection([
         ['cat_events', mockCategory],
         ['ch_announcements', mockTextChannel],
@@ -465,6 +466,100 @@ test('4. Full Server Data Extraction Pipeline', async (t) => {
     assert.strictEqual(matrix.length, 2);
   });
 
-  // Clean up tmp directory
-  await fs.rm(tmpDir, { recursive: true, force: true });
+});
+
+test('message history walks every page in chronological order and refuses a repeating cursor', async () => {
+  const message = (id) => ({ id: String(id), content: `Message ${id}` });
+  const batch = (from, count) => new Collection(Array.from({ length: count }, (_, index) => {
+    const entry = message(from - index);
+    return [entry.id, entry];
+  }));
+  const calls = [];
+  const channel = { id: 'paged', messages: { fetch: async (options) => {
+    calls.push(options);
+    if (!options.before) return batch(205, 100);
+    if (options.before === '106') return batch(105, 100);
+    if (options.before === '6') return batch(5, 5);
+    throw new Error('Unexpected pagination cursor');
+  } } };
+  const messages = await fetchAllMessagesFromCreation(channel);
+  assert.equal(messages.length, 205);
+  assert.deepEqual(messages.map((entry) => entry.id), Array.from({ length: 205 }, (_, index) => String(index + 1)));
+  assert.deepEqual(calls.map((call) => call.before), [undefined, '106', '6']);
+  let repeated = 0;
+  await assert.rejects(fetchAllMessagesFromCreation({ id: 'repeating', messages: { fetch: async () => { repeated++; return batch(100, 100); } } }), (error) => {
+    assert.equal(error.code, 'MESSAGE_HISTORY_INCOMPLETE');
+    assert.equal(error.messages.length, 100);
+    assert.match(error.cause.message, /did not advance/);
+    return true;
+  });
+  assert.equal(repeated, 2);
+});
+
+test('extractor refreshes directories, retains partial history, and reports failed histories truthfully', async (t) => {
+  const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gdg-extractor-partial-'));
+  t.after(() => fs.rm(outputDir, { recursive: true, force: true }));
+  const freshRole = { id: 'fresh-role', name: 'Current Role', position: 1 };
+  const history = Array.from({ length: 100 }, (_, index) => ({ id: String(100 - index), content: `Message ${100 - index}` }));
+  const partial = { id: 'partial', name: 'partial', type: ChannelType.GuildText, parentId: 'unavailable-category', position: 0,
+    isTextBased: () => true,
+    messages: { fetch: async ({ before }) => {
+      if (before) throw Object.assign(new Error('Missing Read Message History'), { code: 50013 });
+      return new Collection(history.map((entry) => [entry.id, entry]));
+    } },
+  };
+  const denied = { id: 'denied', name: 'denied', type: ChannelType.GuildText, position: 1, isTextBased: () => true,
+    messages: { fetch: async () => { throw Object.assign(new Error('Missing Access'), { code: 50001 }); } },
+  };
+  const empty = { id: 'empty', name: 'empty', type: ChannelType.GuildText, position: 2, isTextBased: () => true,
+    messages: { fetch: async () => new Collection() },
+  };
+  let missingPermissionFetches = 0;
+  const missingPermission = { id: 'unreadable', name: 'unreadable', type: ChannelType.GuildText, position: 3, isTextBased: () => true,
+    permissionsFor: () => ({ has: (permission) => permission === PermissionFlagsBits.ViewChannel }),
+    messages: { fetch: async () => { missingPermissionFetches++; return new Collection(); } },
+  };
+  const freshChannels = new Collection([partial, denied, empty, missingPermission].map((channel) => [channel.id, channel]));
+  const calls = [];
+  const guild = { id: 'guild', name: 'Test Guild',
+    roles: { cache: new Collection([['stale-role', { id: 'stale-role', name: 'Deleted Role', position: 2 }]]), fetch: async () => { calls.push('roles'); return new Collection([[freshRole.id, freshRole]]); } },
+    channels: { cache: new Collection(), fetch: async () => { calls.push('channels'); return freshChannels; } },
+    members: { fetchMe: async (options) => { assert.equal(options.force, true); return { id: 'bot' }; } },
+  };
+  const stats = await extractServerData({ guild, outputDir });
+  assert.deepEqual(calls.sort(), ['channels', 'roles']);
+  assert.equal(stats.complete, false);
+  assert.equal(stats.failedMessageChannels, 2);
+  assert.equal(stats.partialMessageChannels, 1);
+  assert.equal(stats.totalChannels, 4);
+  assert.equal(stats.totalRoles, 1);
+  assert.equal(stats.totalMessages, 100);
+  const readJson = async (...parts) => JSON.parse(await fs.readFile(path.join(outputDir, ...parts), 'utf-8'));
+  assert.deepEqual((await readJson('roles.json')).map((role) => role.id), ['fresh-role']);
+  assert.equal((await readJson('server_info.json')).totalChannels, 4);
+  assert.equal((await readJson('channel_role_matrix.json')).length, 4);
+  assert.equal((await readJson('_uncategorized', '#partial', 'messages.json')).length, 100);
+  assert.equal((await readJson('_uncategorized', '#partial', 'message_history_status.json')).status, 'PARTIAL');
+  assert.equal((await readJson('_uncategorized', '#denied', 'message_history_status.json')).errorCode, 50001);
+  assert.equal((await readJson('_uncategorized', '#empty', 'message_history_status.json')).status, 'COMPLETE');
+  assert.equal((await readJson('_uncategorized', '#unreadable', 'message_history_status.json')).errorCode, 'HISTORY_PERMISSION_MISSING');
+  assert.equal(missingPermissionFetches, 0);
+  assert.equal((await readJson('extraction_report.json')).complete, false);
+  const transcript = await fs.readFile(path.join(outputDir, '_uncategorized', '#denied', 'transcript.txt'), 'utf-8');
+  assert.match(transcript, /History Status: FAILED/);
+  assert.match(transcript, /could not be read/);
+  assert.doesNotMatch(transcript, /No messages were returned/);
+  const response = EXTRACTOR_MESSAGES.SUCCESS_DESC(stats);
+  assert.match(response, /partial server export/);
+  assert.match(response, /Incomplete Message Histories:\*\* 3/);
+  assert.doesNotMatch(response, /complete server data/);
+});
+
+test('extractor stops before writing output when the REST directory cannot be read', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'gdg-extractor-unavailable-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const outputDir = path.join(directory, 'export');
+  const guild = { id: 'guild', roles: { fetch: async () => { throw new Error('REST directory unavailable'); } }, channels: { fetch: async () => new Collection() } };
+  await assert.rejects(extractServerData({ guild, outputDir }), /REST directory unavailable/);
+  await assert.rejects(fs.stat(outputDir), { code: 'ENOENT' });
 });

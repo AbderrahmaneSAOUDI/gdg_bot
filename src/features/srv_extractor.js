@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { ChannelType } from 'discord.js';
+import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import { sanitizeName } from '../utils/f_sanitizer.js';
+import { EXTRACTOR_MESSAGES } from '../messages/msg_extractor.js';
 
 /**
  * Formats a Discord message into structured JSON record.
@@ -171,6 +172,8 @@ export async function fetchAllMessagesFromCreation(channel) {
   }
 
   const allMessages = [];
+  const seenMessages = new Set();
+  const cursors = new Set();
   let lastMessageId = null;
 
   try {
@@ -186,17 +189,25 @@ export async function fetchAllMessagesFromCreation(channel) {
       }
 
       for (const msg of batch.values()) {
-        allMessages.push(msg);
+        if (!seenMessages.has(msg.id)) {
+          seenMessages.add(msg.id);
+          allMessages.push(msg);
+        }
       }
-
-      lastMessageId = batch.last()?.id;
 
       if (batch.size < 100) {
         break;
       }
+      const nextCursor = batch.last()?.id;
+      if (!nextCursor || cursors.has(nextCursor)) throw new Error('Message history pagination did not advance.');
+      cursors.add(nextCursor);
+      lastMessageId = nextCursor;
     }
   } catch (error) {
-    console.warn(`[EXTRACTOR] Warning fetching messages in #${channel.name} (${channel.id}):`, error.message);
+    const failure = new Error(`Message history is incomplete for ${channel.id}.`, { cause: error });
+    failure.code = 'MESSAGE_HISTORY_INCOMPLETE';
+    failure.messages = allMessages.reverse();
+    throw failure;
   }
 
   // Reverse so array is chronologically sorted from oldest (creation) to newest
@@ -238,13 +249,17 @@ export async function extractServerData({
     throw new Error('A valid Discord Guild must be provided to extract server data.');
   }
 
-  // 1. Ensure target root directory exists
-  await fs.mkdir(outputDir, { recursive: true });
-
   onProgress({ stage: 'roles', message: 'Reading server metadata and roles...' });
 
+  // Directory fetches use REST results directly: the managers can retain deleted
+  // cache entries and may not yet contain channels created since startup.
+  const [guildRoles, guildChannels] = await Promise.all([guild.roles.fetch(), guild.channels.fetch()]);
+  const botMember = guild.members?.fetchMe ? await guild.members.fetchMe({ force: true }) : guild.members?.me;
+  const channels = Array.from(guildChannels.values()).filter(Boolean);
+  await fs.mkdir(outputDir, { recursive: true });
+
   // 2. Export Server Info
-  const serverInfo = formatServerInfo(guild);
+  const serverInfo = { ...formatServerInfo(guild), totalChannels: channels.length, totalRoles: guildRoles.size };
   await fs.writeFile(
     path.join(outputDir, 'server_info.json'),
     JSON.stringify(serverInfo, null, 2),
@@ -252,7 +267,7 @@ export async function extractServerData({
   );
 
   // 3. Export Roles
-  const rolesList = Array.from(guild.roles.cache.values())
+  const rolesList = Array.from(guildRoles.values())
     .sort((a, b) => b.position - a.position)
     .map(formatRoleInfo);
 
@@ -263,7 +278,6 @@ export async function extractServerData({
   );
 
   // 4. Organize Channels by Category
-  const channels = Array.from(guild.channels.cache.values());
   const categories = channels.filter((c) => c.type === ChannelType.GuildCategory);
   const nonCategories = channels.filter((c) => c.type !== ChannelType.GuildCategory);
 
@@ -276,6 +290,28 @@ export async function extractServerData({
   let textChannelsCount = 0;
   let voiceChannelsCount = 0;
   let totalMessagesCount = 0;
+  const messageHistory = [];
+
+  async function readChannelHistory(channel, channelDir) {
+    if (typeof channel.messages?.fetch !== 'function') return { messages: [], history: null };
+    let messages, history;
+    try {
+      if (botMember && typeof channel.permissionsFor === 'function') {
+        const permissions = channel.permissionsFor(botMember);
+        if (!permissions?.has(PermissionFlagsBits.ViewChannel) || !permissions.has(PermissionFlagsBits.ReadMessageHistory)) {
+          throw Object.assign(new Error(EXTRACTOR_MESSAGES.HISTORY_PERMISSION_MISSING), { code: 'HISTORY_PERMISSION_MISSING' });
+        }
+      }
+      messages = await fetchAllMessagesFromCreation(channel);
+      history = { channelId: channel.id, channelName: channel.name, status: 'COMPLETE', messagesExported: messages.length };
+    } catch (error) {
+      messages = error.messages || [];
+      history = { channelId: channel.id, channelName: channel.name, status: messages.length ? 'PARTIAL' : 'FAILED', messagesExported: messages.length, errorCode: error.cause?.code || error.code, errorMessage: error.cause?.message || error.message };
+    }
+    messageHistory.push(history);
+    await fs.writeFile(path.join(channelDir, 'message_history_status.json'), JSON.stringify(history, null, 2), 'utf-8');
+    return { messages, history };
+  }
 
   // Track created folders to handle name collisions
   const createdFolders = new Set();
@@ -294,7 +330,7 @@ export async function extractServerData({
 
   // Helper to process a single channel
   async function processChannel(channel, parentDir, categoryName = 'None') {
-    const rolePermissions = extractRoleOverwrites(channel, guild.roles.cache);
+    const rolePermissions = extractRoleOverwrites(channel, guildRoles);
     const isVoice =
       channel.type === ChannelType.GuildVoice ||
       channel.type === ChannelType.GuildStageVoice;
@@ -335,8 +371,8 @@ export async function extractServerData({
 
       // If voice channel has text messages
       if (isText) {
-        const rawMessages = await fetchAllMessagesFromCreation(channel);
-        if (rawMessages.length > 0) {
+        const { messages: rawMessages, history } = await readChannelHistory(channel, channelDir);
+        if (history) {
           totalMessagesCount += rawMessages.length;
           const formatted = rawMessages.map(formatMessageJson);
           await fs.writeFile(
@@ -351,6 +387,8 @@ export async function extractServerData({
             `Category: ${categoryName}`,
             `Exported At: ${new Date().toISOString()}`,
             `Total Messages: ${formatted.length}`,
+            `History Status: ${history.status}`,
+            ...(history.errorMessage ? [`History Error: ${history.errorMessage}`] : []),
             '='.repeat(80),
             '',
             ...formatted.map(formatMessageTranscriptLine),
@@ -391,7 +429,7 @@ export async function extractServerData({
       );
 
       // Fetch all messages from creation of the channel/server
-      const rawMessages = await fetchAllMessagesFromCreation(channel);
+      const { messages: rawMessages, history } = await readChannelHistory(channel, channelDir);
       totalMessagesCount += rawMessages.length;
       const formatted = rawMessages.map(formatMessageJson);
 
@@ -408,11 +446,13 @@ export async function extractServerData({
         `Topic: ${channel.topic || 'No topic'}`,
         `Exported At: ${new Date().toISOString()}`,
         `Total Messages: ${formatted.length}`,
+        ...(history ? [`History Status: ${history.status}`] : []),
+        ...(history?.errorMessage ? [`History Error: ${history.errorMessage}`] : []),
         '='.repeat(80),
         '',
         ...(formatted.length > 0
           ? formatted.map(formatMessageTranscriptLine)
-          : ['(No messages in this channel)']),
+          : [history?.status === 'FAILED' ? EXTRACTOR_MESSAGES.HISTORY_UNAVAILABLE : history ? EXTRACTOR_MESSAGES.NO_MESSAGES : EXTRACTOR_MESSAGES.NO_MESSAGE_HISTORY]),
       ];
 
       await fs.writeFile(
@@ -432,7 +472,7 @@ export async function extractServerData({
     const catDir = path.join(outputDir, catFolderName);
     await fs.mkdir(catDir, { recursive: true });
 
-    const catRolePermissions = extractRoleOverwrites(cat, guild.roles.cache);
+    const catRolePermissions = extractRoleOverwrites(cat, guildRoles);
     const catInfo = {
       id: cat.id,
       name: cat.name,
@@ -466,7 +506,7 @@ export async function extractServerData({
 
   // 6. Process Uncategorized Channels
   const uncategorizedChannels = nonCategories
-    .filter((c) => !c.parentId)
+    .filter((c) => !c.parentId || !categories.some((category) => category.id === c.parentId))
     .sort((a, b) => a.position - b.position);
 
   if (uncategorizedChannels.length > 0) {
@@ -493,7 +533,7 @@ export async function extractServerData({
     'utf-8'
   );
 
-  return {
+  const stats = {
     guildId: guild.id,
     guildName: guild.name,
     totalRoles: rolesList.length,
@@ -502,6 +542,13 @@ export async function extractServerData({
     textChannels: textChannelsCount,
     voiceChannels: voiceChannelsCount,
     totalMessages: totalMessagesCount,
+    complete: messageHistory.every((history) => history.status === 'COMPLETE'),
+    failedMessageChannels: messageHistory.filter((history) => history.status === 'FAILED').length,
+    partialMessageChannels: messageHistory.filter((history) => history.status === 'PARTIAL').length,
+    messageHistory,
+    scope: EXTRACTOR_MESSAGES.EXPORT_SCOPE,
     outputDir,
   };
+  await fs.writeFile(path.join(outputDir, 'extraction_report.json'), JSON.stringify(stats, null, 2), 'utf-8');
+  return stats;
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { PermissionFlagsBits } from 'discord.js';
+import { PermissionFlagsBits, RESTJSONErrorCodes } from 'discord.js';
 import { createClubStore, emptyClubData } from '../src/data/json_club.js';
 import { createClubServices } from '../src/features/srv_club.js';
 import { getCapabilities } from '../src/features/srv_authorization.js';
@@ -27,7 +27,7 @@ function fixture(t, storeOptions) {
       delete: async (id) => { calls.push(['delete', id]); roles.delete(id); },
     },
     channels: { fetch: async () => null },
-    members: { cache: members, fetch: async (query) => { const id = typeof query === 'string' ? query : query.user; if (!members.has(id)) throw new Error('Unknown Member'); return members.get(id); } },
+    members: { cache: members, fetch: async (query) => { const id = typeof query === 'string' ? query : query.user; if (!members.has(id)) throw Object.assign(new Error('Unknown Member'), { code: RESTJSONErrorCodes.UnknownMember }); return members.get(id); } },
   };
   function member(id, { admin = false, roleIds = [], name = id } = {}) {
     const cachedRoles = new Map(roleIds.map((roleId) => [roleId, roles.get(roleId) || { id: roleId }]));
@@ -77,6 +77,33 @@ test('department membership cannot grant global moderation privileges through a 
   await assert.rejects(f.services.resolveRequest(f.ctx,request.id,{decision:'APPROVED'}),{code:'UNSAFE_MEMBERSHIP_ROLE'});
   assert.equal(f.store.snapshot().requests[0].status,'PENDING');assert.equal(f.user.roles.cache.has('dev-member'),false);
   const report=await f.services.checkSetup(f.ctx);assert.equal(report.issues.some(issue=>issue.code==='UNSAFE_MEMBERSHIP_ROLE'),true);
+});
+
+test('persisted CORE membership collisions cannot grant or strip protected roles', async (t) => {
+  for (const field of ['coreRoleId', 'coreRoleIds']) {
+    await t.test(field, async (t) => {
+      const f = fixture(t); await f.configure();
+      await f.services.registerMember(f.ctx, { userId: 'user', departmentKey: 'DEV' });
+      const applicant = f.member('applicant');
+      const request = await f.services.submitRequest({ guild: f.guild, actor: applicant }, { departmentKey: 'DEV' });
+      // Simulate a collision written by an earlier release before binding validation.
+      await f.store.transaction((data) => { data.guilds[0][field] = field === 'coreRoleIds' ? ['dev-member'] : 'dev-member'; });
+      const before = f.store.snapshot();
+      f.calls.length = 0;
+      await assert.rejects(f.services.resolveRequest(f.ctx, request.id, { decision: 'APPROVED' }), { code: 'UNSAFE_MEMBERSHIP_ROLE' });
+      await assert.rejects(f.services.updateMembership(f.ctx, { userId: 'user', departmentKey: 'MEDIA', confirmed: true }), { code: 'UNSAFE_MEMBERSHIP_ROLE' });
+      await assert.rejects(f.services.updateMembership(f.ctx, { userId: 'user', status: 'ARCHIVED', confirmed: true }), { code: 'UNSAFE_MEMBERSHIP_ROLE' });
+      assert.deepEqual(f.calls, []);
+      assert.equal(f.user.roles.cache.has('dev-member'), true);
+      assert.equal(applicant.roles.cache.has('dev-member'), false);
+      assert.deepEqual(f.store.snapshot(), before);
+      // A departed account has no Discord roles to change, so its archive remains possible.
+      f.guild.members.cache.delete('user');
+      const archived = await f.services.updateMembership(f.ctx, { userId: 'user', status: 'ARCHIVED', confirmed: true });
+      assert.equal(archived.status, 'ARCHIVED');
+      assert.deepEqual(f.calls, []);
+    });
+  }
 });
 
 test('DM and cross-guild contexts are rejected', (t) => {
@@ -247,6 +274,44 @@ test('archive/transfer require confirmation and reactivation preserves stored me
   assert.equal(f.user.roles.cache.has('dev-member'), true);
 });
 
+test('confirmed archive preserves a departed member record without requiring Discord role changes', async (t) => {
+  const f = fixture(t); await f.configure();
+  f.user.displayName = 'Former Member';
+  await f.services.registerMember(f.ctx, { userId: 'user', departmentKey: 'DEV' });
+  const original = f.services.getMember(f.ctx, 'user');
+  f.guild.members.cache.delete('user');
+  f.guild.members.me.permissions.has = () => false;
+  f.roles.delete('dev-member');
+  f.calls.length = 0;
+  await assert.rejects(f.services.updateMembership(f.ctx, { userId: 'user', status: 'ARCHIVED' }), { code: 'CONFIRM_REQUIRED' });
+  const archived = await f.services.updateMembership(f.ctx, { userId: 'user', status: 'ARCHIVED', confirmed: true });
+  assert.equal(archived.status, 'ARCHIVED');
+  assert.equal(archived.departmentKey, 'DEV');
+  assert.equal(archived.displayName, original.displayName);
+  assert.equal(archived.createdAt, original.createdAt);
+  assert.deepEqual(f.calls, []);
+  const reloaded = createClubStore(f.file).snapshot();
+  assert.equal(reloaded.members[0].status, 'ARCHIVED');
+  assert.equal(reloaded.operations.at(-1).status, 'COMPLETED');
+  assert.equal(reloaded.audit.at(-1).action, 'MEMBER_ADMIN');
+  await assert.rejects(f.services.updateMembership(f.ctx, { userId: 'user', status: 'ACTIVE', confirmed: true }), { code: 'MEMBER_LEFT' });
+});
+
+test('archive does not treat a Discord fetch outage as a departed member', async (t) => {
+  const f = fixture(t); await f.configure();
+  await f.services.registerMember(f.ctx, { userId: 'user', departmentKey: 'DEV' });
+  const fetch = f.guild.members.fetch;
+  f.guild.members.fetch = async (query) => {
+    if (query.user === 'user') throw new Error('Temporary Discord outage');
+    return fetch(query);
+  };
+  f.calls.length = 0;
+  await assert.rejects(f.services.updateMembership(f.ctx, { userId: 'user', status: 'ARCHIVED', confirmed: true }), { code: 'MEMBER_LEFT' });
+  assert.equal(f.services.getMember(f.ctx, 'user').status, 'ACTIVE');
+  assert.equal(f.user.roles.cache.has('dev-member'), true);
+  assert.deepEqual(f.calls, []);
+});
+
 test('request ownership, cancellation, rejection reason and history are durable', async (t) => {
   const f = fixture(t); await f.configure();
   const ctx = { guild: f.guild, actor: f.user };
@@ -308,6 +373,16 @@ test('leadership appointments require club-wide authority, bindings and confirma
   await f.services.appointLeadership(f.ctx, { userId: 'user', roleKey: 'PRESIDENT', confirmed: true });
   assert.equal(f.user.roles.cache.has('president'), true);
   assert.equal(f.store.snapshot().audit.some((item) => item.action === 'LEADERSHIP_APPOINT'), true);
+});
+
+test('leadership appointments reject bot accounts before journaling or granting authority', async (t) => {
+  const f = fixture(t); await f.configure();
+  f.user.user.bot = true;
+  f.calls.length = 0;
+  const before = f.store.snapshot();
+  await assert.rejects(f.services.appointLeadership(f.ctx, { userId: 'user', roleKey: 'PRESIDENT', confirmed: true }), { code: 'INVALID_MEMBER' });
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(f.store.snapshot(), before);
 });
 
 test('snapshots are isolated, writes survive reload, and failed transactions do not leak mutations', async (t) => {
